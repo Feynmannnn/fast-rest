@@ -9,7 +9,7 @@ public class IoTDBConnection {
     static Connection getConnection() {
         // JDBC driver name and database URL
         String driver = "org.apache.iotdb.jdbc.IoTDBDriver";
-        String url = "jdbc:iotdb://127.0.0.1:6667/";
+        String url = "jdbc:iotdb://101.6.15.218:6667/";
 
         // Database credentials
         String username = "root";
