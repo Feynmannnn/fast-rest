@@ -15,17 +15,19 @@ import java.sql.*;
 import org.apache.iotdb.jdbc.IoTDBSQLException;
 
 @RestController
-public class DataPointController {
+public class AggregationController {
 
-    @RequestMapping("/data")
-    public List<Map<String, Object>> dataPoints(
+    @RequestMapping("/aggregation")
+    public List<Map<String, Object>> aggregations(
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
-            @RequestParam(value="columns") String columns,
-            @RequestParam(value="starttime", required = false) Long starttime,
-            @RequestParam(value="endtime", required = false) Long endtime,
+            @RequestParam(value="aggregations") String aggregation,
+            @RequestParam(value="interval") String interval,
+            @RequestParam(value="basetime", required = false) String basetime,
+            @RequestParam(value="starttime", required = false) String starttime,
+            @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="conditions", required = false) String conditions
-        ) throws SQLException {
+    ) throws SQLException {
         Connection connection = IoTDBConnection.getConnection();
         if (connection == null) {
             System.out.println("get connection defeat");
@@ -33,11 +35,15 @@ public class DataPointController {
         }
         long stime = System.currentTimeMillis();
         Statement statement = connection.createStatement();
-        String sql = "SELECT " + columns.replace("\"", "") +
-                     " FROM " + database.replace("\"", "") + "." + timeseries.replace("\"", "") +
-                     (starttime == null ? "" : " WHERE time >= " + starttime) +
-                     (endtime   == null ? "" : " AND time <= " + endtime) +
-                     (conditions    == null ? "" : conditions.replace("\"", ""));
+        String sql =
+                String.format("SELECT %s FROM %s %s GROUP BY (%s, %s [%s, %s])",
+                        aggregation.replace("\"", ""),
+                        database.replace("\"", "") + "." + timeseries.replace("\"", ""),
+                        (conditions == null ? "" : " WHERE " + conditions.replace("\"", "")),
+                        interval.replace("\"", ""),
+                        (basetime == null ? "" : basetime.replace("\"", "") + ','),
+                        starttime.replace("\"", ""),
+                        endtime.replace("\"", ""));
         ResultSet resultSet = statement.executeQuery(sql);
         System.out.println("exec used time: " + (System.currentTimeMillis() - stime) + "ms");
         List<Map<String, Object>> res = new LinkedList<>();
@@ -49,6 +55,9 @@ public class DataPointController {
                 for(int i = 1; i <= columnCount; i++){
                     int type = metaData.getColumnType(i);
                     String label = metaData.getColumnLabel(i);
+                    Object obj = resultSet.getObject(i);
+                    if(obj == null) {map.put(label, null); continue;}
+
                     if(Types.INTEGER == type) map.put(label, resultSet.getInt(i));
                     else if(Types.BIGINT == type) map.put(label, resultSet.getLong(i));
                     else if(Types.BOOLEAN == type) map.put(label, resultSet.getString(i));

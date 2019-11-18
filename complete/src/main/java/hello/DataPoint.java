@@ -1,19 +1,41 @@
 package hello;
 
+import java.util.Map;
+
 public class DataPoint {
-    private final long timestamp;
-    private final String value;
+    private final Map<String, Object> data;
+    private final int id;
+    private int iter;
+    private double sim;
 
-    DataPoint(long timestamp, String value){
-        this.timestamp = timestamp;
-        this.value = value;
+    DataPoint(Map<String, Object> data, int id, double sim){
+        this.data = data;
+        this.iter = 0;
+        this.id = id;
+        this.sim = sim;
     }
 
-    public String getValue() {
-        return value;
+    public Map<String, Object> getData() {
+        return data;
     }
 
-    public long getTimestamp() {
-        return timestamp;
+    public int getIter() {
+        return iter;
+    }
+
+    public double getSim() {
+        return sim;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setIter(int iter) {
+        this.iter = iter;
+    }
+
+    public void setSim(double sim) {
+        this.sim = sim;
     }
 }
