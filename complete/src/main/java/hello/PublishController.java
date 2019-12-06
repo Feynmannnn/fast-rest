@@ -1,37 +1,35 @@
 package hello;
 
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.DigestUtils;
 
 import java.sql.*;
+import java.util.Map;
+
 import org.apache.iotdb.jdbc.IoTDBSQLException;
 
 @RestController
-public class AggregationController {
+public class PublishController {
 
-    @RequestMapping("/aggregation")
-    public List<Map<String, Object>> aggregations(
+    private static final String slat = "&%333***&&%%$$#@";
+
+    @RequestMapping("/publish")
+    public List<Map<String, Object>> publish(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
             @RequestParam(value="username", defaultValue = "root") String username,
             @RequestParam(value="password", defaultValue = "root") String password,
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
-            @RequestParam(value="aggregations") String aggregation,
-            @RequestParam(value="interval") String interval,
-            @RequestParam(value="basetime", required = false) String basetime,
+            @RequestParam(value="columns") String columns,
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
-            @RequestParam(value="conditions", required = false) String conditions,
-            @RequestParam(value="ip", required = false) String ip,
-            @RequestParam(value="port", required = false) String port,
             @RequestParam(value="format", defaultValue = "map") String format
     ) throws SQLException {
         Connection connection = IoTDBConnection.getConnection(url, username, password);
@@ -41,15 +39,10 @@ public class AggregationController {
         }
         long stime = System.currentTimeMillis();
         Statement statement = connection.createStatement();
-        String sql =
-                String.format("SELECT %s FROM %s %s GROUP BY (%s, %s [%s, %s])",
-                        aggregation.replace("\"", ""),
-                        database.replace("\"", "") + "." + timeseries.replace("\"", ""),
-                        (conditions == null ? "" : " WHERE " + conditions.replace("\"", "")),
-                        interval.replace("\"", ""),
-                        (basetime == null ? "" : basetime.replace("\"", "") + ','),
-                        starttime.replace("\"", ""),
-                        endtime.replace("\"", ""));
+        String sql = "SELECT " + columns.replace("\"", "") +
+                " FROM " + database.replace("\"", "") + "." + timeseries.replace("\"", "") +
+                (starttime == null ? "" : " WHERE time >= " + starttime.replace("\"", "")) +
+                (endtime   == null ? "" : " AND time <= " + endtime.replace("\"", ""));
         ResultSet resultSet = statement.executeQuery(sql);
         System.out.println("exec used time: " + (System.currentTimeMillis() - stime) + "ms");
         List<Map<String, Object>> res = new LinkedList<>();
@@ -61,9 +54,6 @@ public class AggregationController {
                 for(int i = 1; i <= columnCount; i++){
                     int type = metaData.getColumnType(i);
                     String label = metaData.getColumnLabel(i);
-                    Object obj = resultSet.getObject(i);
-                    if(obj == null) {map.put(label, null); continue;}
-
                     if(Types.INTEGER == type) map.put(label, resultSet.getInt(i));
                     else if(Types.BIGINT == type) map.put(label, resultSet.getLong(i));
                     else if(Types.BOOLEAN == type) map.put(label, resultSet.getString(i));
@@ -79,7 +69,7 @@ public class AggregationController {
         }
         statement.close();
         connection.close();
-        System.out.println("used time: " + (System.currentTimeMillis() - stime) + "ms");
+        System.out.println("publish used time: " + (System.currentTimeMillis() - stime) + "ms");
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();
         for(Map<String, Object> map : res){

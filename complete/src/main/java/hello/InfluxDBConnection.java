@@ -1,5 +1,6 @@
 package hello;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -26,7 +27,7 @@ public class InfluxDBConnection {
     // 密码
     private String password;
     // 连接地址
-    private String openurl;
+    private String url;
     // 数据库
     private String database;
     // 保留策略
@@ -34,11 +35,11 @@ public class InfluxDBConnection {
 
     private InfluxDB influxDB;
 
-    public InfluxDBConnection(String username, String password, String openurl, String database,
+    public InfluxDBConnection(String url, String username, String password, String database,
                               String retentionPolicy) {
+        this.url = url;
         this.username = username;
         this.password = password;
-        this.openurl = openurl;
         this.database = database;
         this.retentionPolicy = retentionPolicy == null || retentionPolicy.equals("") ? "autogen" : retentionPolicy;
         influxDbBuild();
@@ -90,12 +91,12 @@ public class InfluxDBConnection {
      */
     public InfluxDB influxDbBuild() {
         if (influxDB == null) {
-            influxDB = InfluxDBFactory.connect(openurl, username, password);
+            influxDB = InfluxDBFactory.connect(url, username, password);
         }
         try {
-            // if (!influxDB.databaseExists(database)) {
-            // influxDB.createDatabase(database);
-            // }
+//             if (!influxDB.databaseExists(database)) {
+//             influxDB.createDatabase(database);
+//             }
         } catch (Exception e) {
             // 该数据库可能设置动态代理，不支持创建数据库
             // e.printStackTrace();
@@ -236,6 +237,21 @@ public class InfluxDBConnection {
                 .fields(fields)
                 .build();
         return point;
+    }
+
+    public static void main(String[] args) {
+        InfluxDBConnection influxDBConnection = new InfluxDBConnection("http://192.168.10.172:8086", "root", "root", "NOAA_water_database", null);
+        QueryResult res = influxDBConnection.query("show field keys");
+        for(QueryResult.Result r : res.getResults()){
+            for(QueryResult.Series s : r.getSeries()){
+                for(List<Object> x :s.getValues()){
+                    for(Object o : x){
+                        System.out.println(o);
+                    }
+                }
+            }
+        }
+
     }
 
 }
