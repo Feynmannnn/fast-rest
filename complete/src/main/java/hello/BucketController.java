@@ -57,7 +57,7 @@ public class BucketController {
         dataPoints.addAll(linkedDataPoints);
         String iotdbLabel = database + "." + timeseries + "." +columns;
         String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
-        String timelabel = dbtype.equals("iotdb") ? "Time" : "time";
+        String timelabel = "time";
 
         for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
         Long time = System.currentTimeMillis();
@@ -69,111 +69,111 @@ public class BucketController {
         List<Bucket> res = new LinkedList<>();
 
 
-        String funcName = "f";
-        String functor = "function f(dataPoints, valueLabel){\n" +
-                "\t// 初始化\n" +
-                "\tvar timeWeights=[];\n" +
-                "\tvar valueWeights = [];\n" +
-                "\tvar weights = [];\n" +
-                "\tvar presum = [];\n" +
-                "\tvar maxTimeWeight = 0;\n" +
-                "\n" +
-                "\t// 计算时间权重\n" +
-                "\tvar lastTimestamp = new Date(dataPoints[0]['time']).getTime();\n" +
-                "\tfor (var i = 0; i < dataPoints.length; i++) {\n" +
-                "\t\tvar ts = new Date(dataPoints[i]['time']).getTime();\n" +
-                "\t\tvar weight = Math.abs(ts - lastTimestamp);\n" +
-                "\t\ttimeWeights.push(weight);\n" +
-                "\t\tlastTimestamp = ts;\n" +
-                "\t\tmaxTimeWeight = Math.max(weight, maxTimeWeight);\n" +
-                "\t}\n" +
-                "\tfor (var i = 0; i < timeWeights.length; i++) {\n" +
-                "\t\ttimeWeights[i] = timeWeights[i] * 100 / maxTimeWeight;\n" +
-                "\t}\n" +
-                "\n" +
-                "\t// 计算数值权重\n" +
-                "\tvar valueSum = 0.0;\n" +
-                "\tfor (var i = 0; i < dataPoints.length; i++) {\n" +
-                "\t\tvalueSum += dataPoints[i][valueLabel];\n" +
-                "\t\tpresum.push(valueSum);\n" +
-                "\t}\n" +
-                "\tvar maxValueWeight = 0.0;\n" +
-                "\tfor(var i = 0; i < presum.length; i++){\n" +
-                "\t\tvar divident = i > 50 ? presum[i] - presum[i-50] : presum[i];\n" +
-                "\t\tvar dividor = i > 50 ? 50 : i+1.0;\n" +
-                "\t\tvar avgsum = divident / dividor;\n" +
-                "\t\tvar valueWeight = Math.abs(dataPoints[i][valueLabel] - avgsum);\n" +
-                "\t\tvalueWeights.push(valueWeight);\n" +
-                "\t\tmaxValueWeight = Math.max(maxValueWeight, valueWeight);\n" +
-                "\t}\n" +
-                "\n" +
-                "\t// 合并权重\n" +
-                "\tfor (var i = 0; i < valueWeights.length; i++) {\n" +
-                "\t\tvalueWeights[i] = valueWeights[i] * 100 / maxValueWeight;\n" +
-                "\t\tdataPoints[i][\"type\"] = valueWeights[i] > 90 ? 2 : timeWeights[i] > 10 ? 1 : 0;\n" +
-                "\t\tdataPoints[i][\"weight\"] = valueWeights[i] + timeWeights[i];\n" +
-                "\t\tdataPoints[i][\"valueWeight\"] = valueWeights[i];\n" +
-                "\t\tdataPoints[i][\"timeweight\"] = timeWeights[i];\n" +
-                "\t\tweights.push(valueWeights[i] + timeWeights[i]);\n" +
-                "\t}\n" +
-                "\treturn weights;\n" +
-                "}";
+//        String funcName = "f";
+//        String functor = "function f(dataPoints, valueLabel){\n" +
+//                "\t// 初始化\n" +
+//                "\tvar timeWeights=[];\n" +
+//                "\tvar valueWeights = [];\n" +
+//                "\tvar weights = [];\n" +
+//                "\tvar presum = [];\n" +
+//                "\tvar maxTimeWeight = 0;\n" +
+//                "\n" +
+//                "\t// 计算时间权重\n" +
+//                "\tvar lastTimestamp = new Date(dataPoints[0]['time']).getTime();\n" +
+//                "\tfor (var i = 0; i < dataPoints.length; i++) {\n" +
+//                "\t\tvar ts = new Date(dataPoints[i]['time']).getTime();\n" +
+//                "\t\tvar weight = Math.abs(ts - lastTimestamp);\n" +
+//                "\t\ttimeWeights.push(weight);\n" +
+//                "\t\tlastTimestamp = ts;\n" +
+//                "\t\tmaxTimeWeight = Math.max(weight, maxTimeWeight);\n" +
+//                "\t}\n" +
+//                "\tfor (var i = 0; i < timeWeights.length; i++) {\n" +
+//                "\t\ttimeWeights[i] = timeWeights[i] * 100 / maxTimeWeight;\n" +
+//                "\t}\n" +
+//                "\n" +
+//                "\t// 计算数值权重\n" +
+//                "\tvar valueSum = 0.0;\n" +
+//                "\tfor (var i = 0; i < dataPoints.length; i++) {\n" +
+//                "\t\tvalueSum += dataPoints[i][valueLabel];\n" +
+//                "\t\tpresum.push(valueSum);\n" +
+//                "\t}\n" +
+//                "\tvar maxValueWeight = 0.0;\n" +
+//                "\tfor(var i = 0; i < presum.length; i++){\n" +
+//                "\t\tvar divident = i > 50 ? presum[i] - presum[i-50] : presum[i];\n" +
+//                "\t\tvar dividor = i > 50 ? 50 : i+1.0;\n" +
+//                "\t\tvar avgsum = divident / dividor;\n" +
+//                "\t\tvar valueWeight = Math.abs(dataPoints[i][valueLabel] - avgsum);\n" +
+//                "\t\tvalueWeights.push(valueWeight);\n" +
+//                "\t\tmaxValueWeight = Math.max(maxValueWeight, valueWeight);\n" +
+//                "\t}\n" +
+//                "\n" +
+//                "\t// 合并权重\n" +
+//                "\tfor (var i = 0; i < valueWeights.length; i++) {\n" +
+//                "\t\tvalueWeights[i] = valueWeights[i] * 100 / maxValueWeight;\n" +
+//                "\t\tdataPoints[i][\"type\"] = valueWeights[i] > 90 ? 2 : timeWeights[i] > 10 ? 1 : 0;\n" +
+//                "\t\tdataPoints[i][\"weight\"] = valueWeights[i] + timeWeights[i];\n" +
+//                "\t\tdataPoints[i][\"valueWeight\"] = valueWeights[i];\n" +
+//                "\t\tdataPoints[i][\"timeweight\"] = timeWeights[i];\n" +
+//                "\t\tweights.push(valueWeights[i] + timeWeights[i]);\n" +
+//                "\t}\n" +
+//                "\treturn weights;\n" +
+//                "}";
+//
+//
+//        ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
+//        try{
+//            CompiledScript compiled = ((Compilable)engine).compile(functor);
+//            compiled.eval();
+//            if (engine instanceof Invocable) {
+//                Invocable in = (Invocable) compiled.getEngine();
+//                System.out.println("eval used " + (System.currentTimeMillis() - time) + "ms");
+//                ScriptObjectMirror r = (ScriptObjectMirror)in.invokeFunction(funcName, dataPoints, label);
+//                for(int i = 0; i < dataPoints.size(); i++){
+//                    weights.add((Double)r.get(i + ""));
+//                }
+//                System.out.println("trans used " + (System.currentTimeMillis() - time) + "ms");
+//            }
+//        }catch(Exception e){
+//            e.printStackTrace();
+//        }
 
-
-        ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
-        try{
-            CompiledScript compiled = ((Compilable)engine).compile(functor);
-            compiled.eval();
-            if (engine instanceof Invocable) {
-                Invocable in = (Invocable) compiled.getEngine();
-                System.out.println("eval used " + (System.currentTimeMillis() - time) + "ms");
-                ScriptObjectMirror r = (ScriptObjectMirror)in.invokeFunction(funcName, dataPoints, label);
-                for(int i = 0; i < dataPoints.size(); i++){
-                    weights.add((Double)r.get(i + ""));
-                }
-                System.out.println("trans used " + (System.currentTimeMillis() - time) + "ms");
-            }
-        }catch(Exception e){
-            e.printStackTrace();
+        long maxTimeWeight = 0;
+        long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
+        for(Map<String, Object> point : dataPoints){
+//            Long weight = Math.abs(Math.round((Double) point.get(label)));
+            Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
+            Long weight = Math.abs(t.getTime() - lastTimestamp);
+            timeWeights.add(weight);
+            lastTimestamp = t.getTime();
+            maxTimeWeight = Math.max(maxTimeWeight, weight);
+        }
+        for(int i = 0; i < timeWeights.size(); i++){
+            timeWeights.set(i, timeWeights.get(i) * 100 / maxTimeWeight);
         }
 
-//        long maxTimeWeight = 0;
-//        long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
-//        for(Map<String, Object> point : dataPoints){
-////            Long weight = Math.abs(Math.round((Double) point.get(label)));
-//            Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
-//            Long weight = Math.abs(t.getTime() - lastTimestamp);
-//            timeWeights.add(weight);
-//            lastTimestamp = t.getTime();
-//            maxTimeWeight = Math.max(maxTimeWeight, weight);
-//        }
-//        for(int i = 0; i < timeWeights.size(); i++){
-//            timeWeights.set(i, timeWeights.get(i) * 100 / maxTimeWeight);
-//        }
-//
-//        Double valueSum = 0.0;
-//        for(Map<String, Object> point : dataPoints){
-//            Double weight = Math.abs((Double) point.get(label));
-//            valueSum += weight;
-//            valuePresum.add(valueSum);
-//        }
-//        Double maxValueWeight = 0.0;
-//        for(int i = 0; i < valuePresum.size(); i++){
-//            Double divident = i > 50 ? valuePresum.get(i) - valuePresum.get(i-50) : valuePresum.get(i);
-//            Double dividor = i > 50 ? 50L : i+1.0;
-//            Double valueWeight = Math.abs((Double) dataPoints.get(i).get(label) - (divident/dividor));
-//            valueWeights.add(valueWeight);
-//            maxValueWeight = Math.max(maxValueWeight, valueWeight);
-//        }
-//        for(int i = 0; i < valueWeights.size(); i++){
-//            valueWeights.set(i, valueWeights.get(i) * 100 / maxValueWeight);
-//            dataPoints.get(i).put("Type", valueWeights.get(i) > 90 ? 2L : timeWeights.get(i) > 10 ? 1L : 0L);
-//        }
-//
-//        for(int i = 0; i < timeWeights.size(); i++){
-//            weights.add(timeWeights.get(i) + valueWeights.get(i));
-//            dataPoints.get(i).put("weight", weights.get(i));
-//        }
+        Double valueSum = 0.0;
+        for(Map<String, Object> point : dataPoints){
+            Double weight = Math.abs((Double) point.get(label));
+            valueSum += weight;
+            valuePresum.add(valueSum);
+        }
+        Double maxValueWeight = 0.0;
+        for(int i = 0; i < valuePresum.size(); i++){
+            Double divident = i > 50 ? valuePresum.get(i) - valuePresum.get(i-50) : valuePresum.get(i);
+            Double dividor = i > 50 ? 50L : i+1.0;
+            Double valueWeight = Math.abs((Double) dataPoints.get(i).get(label) - (divident/dividor));
+            valueWeights.add(valueWeight);
+            maxValueWeight = Math.max(maxValueWeight, valueWeight);
+        }
+        for(int i = 0; i < valueWeights.size(); i++){
+            valueWeights.set(i, valueWeights.get(i) * 100 / maxValueWeight);
+            dataPoints.get(i).put("Type", valueWeights.get(i) > 90 ? 2L : timeWeights.get(i) > 10 ? 1L : 0L);
+        }
+
+        for(int i = 0; i < timeWeights.size(); i++){
+            weights.add(timeWeights.get(i) + valueWeights.get(i));
+            dataPoints.get(i).put("weight", weights.get(i));
+        }
 
         System.out.println("weight used " + (System.currentTimeMillis() - time) + "ms");
 
