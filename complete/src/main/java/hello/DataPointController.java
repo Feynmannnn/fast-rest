@@ -87,8 +87,8 @@ public class DataPointController {
                         else if(Types.FLOAT == type) map.put(label, resultSet.getFloat(i));
                         else if(Types.DOUBLE == type) map.put(label, resultSet.getDouble(i));
                         else if(Types.DATE == type) map.put(label, resultSet.getDate(i));
-                        else if(Types.TIME == type) map.put(label, resultSet.getTime(i));
-                        else if(Types.TIMESTAMP == type) map.put(label, resultSet.getTimestamp(i));
+                        else if(Types.TIME == type) map.put(label.toLowerCase(), resultSet.getTime(i));
+                        else if(Types.TIMESTAMP == type) map.put(label.toLowerCase(), resultSet.getTimestamp(i));
                         else map.put(label, resultSet.getString(i));
                     }
                     res.add(map);

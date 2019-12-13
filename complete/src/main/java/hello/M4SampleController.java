@@ -81,7 +81,7 @@ public class M4SampleController {
         System.out.println("m4sample used time: " + (System.currentTimeMillis() - st) + "ms");
         if(format.equals("map")) return res;
 
-        String timelabel = dbtype.equals("iotdb") ? "Time" : "time";
+        String timelabel = "time";
 
         List<Map<String, Object>> result = new LinkedList<>();
         for(Map<String, Object> map : res){
