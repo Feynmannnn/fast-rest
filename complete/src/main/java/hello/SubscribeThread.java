@@ -282,6 +282,7 @@ public class SubscribeThread extends Thread {
             sampleDataPoints.addAll(candi);
         }
         System.out.println("bucketsample used time: " + (System.currentTimeMillis() - st) + "ms");
+        ;;
 
         // sample complete, persist to iotdb
         String batchInsertFormat = "insert into %s.%s(timestamp, %s) values(%s, %s);";
