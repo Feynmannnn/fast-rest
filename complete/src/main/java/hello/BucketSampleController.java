@@ -37,7 +37,7 @@ public class BucketSampleController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
-    ) throws SQLException {
+    ) throws Exception {
 
         url = url.replace("\"", "");
         username = username.replace("\"", "");
@@ -58,6 +58,8 @@ public class BucketSampleController {
         String label = dbtype.equals("iotdb") ? iotdblabel : columns;
 
         List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query,"map", ip, port, amount, dbtype);
+        if(buckets == null) return null;
+
         List<Map<String, Object>> res = new LinkedList<Map<String, Object>>();
         long st = System.currentTimeMillis();
         System.out.println("bucketsample started");
@@ -71,24 +73,9 @@ public class BucketSampleController {
             Set<Map<String, Object>> candi = new HashSet<>();
             Set<Integer> ids = new HashSet<>();
             Queue<BucketDataPoint> H = new PriorityQueue<>(datapoints.size(), bucketComparator);
-            Queue<Integer> maxWeight = new LinkedList<>();
-            Queue<Integer> minWeight = new LinkedList<>();
             for(int i = 0; i < datapoints.size(); i++){
                 Map<String, Object> data = datapoints.get(i);
-                double weight = (Double)data.get(label);
                 double sim = (Double) data.get("weight") + 0.0;
-//                for(int j = i; j > i - theta && j >= 0; j--) sim = Math.max(Math.abs((Double)data.get(label) - (Double)datapoints.get(j).get(label)), sim);
-//                if(!maxWeight.isEmpty() && i - maxWeight.peek() >= theta) maxWeight.poll();
-//                if(!minWeight.isEmpty() && i - minWeight.peek() >= theta) minWeight.poll();
-//                while (!maxWeight.isEmpty() && weight >= (Double)datapoints.get(maxWeight.peek()).get(label)){
-//                    maxWeight.poll();
-//                }
-//                maxWeight.offer(i);
-//                while (!minWeight.isEmpty() && weight >= (Double)datapoints.get(minWeight.peek()).get(label)){
-//                    minWeight.poll();
-//                }
-//                minWeight.offer(i);
-//                sim = Math.max((Double)datapoints.get(maxWeight.peek()).get(label) - weight, weight - (Double)datapoints.get(minWeight.peek()).get(label));
                 H.offer(new BucketDataPoint(data, i, sim));
             }
             for(int i = 0; i < k; i++){
@@ -96,9 +83,6 @@ public class BucketSampleController {
                 if(c == null) break;
                 while (c.getIter() != candi.size()){
                     if(!ids.contains(c.getId())){
-//                        double sim = 0;
-//                        for(int j = i; j > i - theta && j >= 0 && !candi.contains(datapoints.get(j)); j--) sim = Math.max(Math.abs((Double)c.getData().get(label) - (Double)datapoints.get(j).get(label)), sim);
-//                        c.setSim(sim);
                         c.setIter(candi.size());
                         H.offer(c);
                     }

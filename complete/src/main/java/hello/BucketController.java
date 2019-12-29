@@ -34,7 +34,7 @@ public class BucketController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
-    ) throws SQLException {
+    ) throws Exception {
 
         url = url.replace("\"", "");
         username = username.replace("\"", "");
@@ -53,14 +53,15 @@ public class BucketController {
 
         List<Map<String, Object>> linkedDataPoints = new DataPointController().dataPoints(
                 url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, dbtype);
-        List<Map<String, Object>> dataPoints = new ArrayList<>();
-        dataPoints.addAll(linkedDataPoints);
+        if(linkedDataPoints.size() < 2) return null;
+
+        List<Map<String, Object>> dataPoints = new ArrayList<>(linkedDataPoints);
         String iotdbLabel = database + "." + timeseries + "." +columns;
         String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
         String timelabel = "time";
 
         for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
-        Long time = System.currentTimeMillis();
+        long time = System.currentTimeMillis();
 
         List<Double> weights = new ArrayList<>();
         List<Long> timeWeights = new ArrayList<>();
@@ -140,7 +141,6 @@ public class BucketController {
         long maxTimeWeight = 0;
         long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
         for(Map<String, Object> point : dataPoints){
-//            Long weight = Math.abs(Math.round((Double) point.get(label)));
             Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
             Long weight = Math.abs(t.getTime() - lastTimestamp);
             timeWeights.add(weight);
@@ -148,20 +148,33 @@ public class BucketController {
             maxTimeWeight = Math.max(maxTimeWeight, weight);
         }
         for(int i = 0; i < timeWeights.size(); i++){
-            timeWeights.set(i, timeWeights.get(i) * 100 / maxTimeWeight);
+            timeWeights.set(i, timeWeights.get(i) * 100 / (maxTimeWeight + 1));
         }
 
         Double valueSum = 0.0;
         for(Map<String, Object> point : dataPoints){
-            Double weight = Math.abs((Double) point.get(label));
+            Double weight;
+            Object value = point.get(label);
+            if(value instanceof Double) weight = Math.abs((Double) value);
+            else if(value instanceof Long) weight = Math.abs(((Long) value).doubleValue());
+            else if(value instanceof Integer) weight = Math.abs(((Integer) value).doubleValue());
+            else if(value instanceof Boolean) throw new Exception("not support sample boolean value");
+            else if(value instanceof String) throw new Exception("not support sample string value");
+            else weight = Math.abs((Double) value);
             valueSum += weight;
             valuePresum.add(valueSum);
         }
-        Double maxValueWeight = 0.0;
+        double maxValueWeight = 0.0;
         for(int i = 0; i < valuePresum.size(); i++){
             Double divident = i > 50 ? valuePresum.get(i) - valuePresum.get(i-50) : valuePresum.get(i);
             Double dividor = i > 50 ? 50L : i+1.0;
-            Double valueWeight = Math.abs((Double) dataPoints.get(i).get(label) - (divident/dividor));
+            Object value = dataPoints.get(i).get(label);
+            double v;
+            if(value instanceof Double) v = Math.abs((Double) value);
+            else if(value instanceof Long) v = Math.abs(((Long) value).doubleValue());
+            else if(value instanceof Integer) v = Math.abs(((Integer) value).doubleValue());
+            else v = Math.abs((Double) value);
+            double valueWeight = Math.abs(v - (divident/dividor));
             valueWeights.add(valueWeight);
             maxValueWeight = Math.max(maxValueWeight, valueWeight);
         }

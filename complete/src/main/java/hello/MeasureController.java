@@ -51,78 +51,98 @@ public class MeasureController {
         return null;
     }
 
-    public static void main(String[] args) throws SQLException {
+    public static void main(String[] args) throws Exception {
 
         String url = "jdbc:iotdb://101.6.15.211:6667/";
         String username = "root";
         String password = "root";
-        String database = "root.group_0";
-        String timeseries = "433";
-        String columns = "ZT18";
-        String starttime = "2019-08-12 06:57:48";
-        String endtime = "2019-08-30 00:00:00";
+        String database = "root.mxw2";
+        String timeseries = "s2";
+        String columns = "d3";
+        String starttime = "3918-07-01 00:00:00";
+        String endtime = "3918-07-07 00:00:00";
         String conditions = null;
         String format = "map";
         String dbtype = "iotdb";
         String ip = null;
         String port = null;
         String query = null;
-        Integer amount = 5000;
+        Long amount = 500L;
 
         String iotdblabel = database + "." + timeseries + "." +columns;
+        System.out.println(iotdblabel);
+        String sampleLabel = database + "." + "L1.M9c840b71"+ "." +columns;
+        System.out.println(sampleLabel);
         String label = dbtype.equals("iotdb") ? iotdblabel : columns;
 
-        List<Map<String, Object>> originalData = new DataPointController().dataPoints(
-                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, dbtype);
-        Double originalMean = calculateMean(originalData, label);
-        Double originalStd = calculateStd(originalData, label, originalMean);
-        Double originalRange = calculateRange(originalData, label);
-
-        List<Map<String, Object>> m4sampleData = new M4SampleController().dataPoints(
-                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype);
-        Double m4sampleMean = calculateMean(m4sampleData, label);
-        Double m4sampleStd = calculateStd(m4sampleData, label, m4sampleMean);
-        Double m4sampleRange = calculateRange(m4sampleData, label);
 
 
-        List<Map<String, Object>> gradsampleData = new GradSampleController().dataPoints(
-                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, 50, 4, "map", ip, port, amount, dbtype);
-        Double gradsampleMean = calculateMean(gradsampleData, label);
-        Double gradsampleStd = calculateStd(gradsampleData, label, gradsampleMean);
-        Double gradsampleRange = calculateRange(gradsampleData, label);
+//        List<Map<String, Object>> originalData = new DataPointController().dataPoints(
+//                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, dbtype);
+//        Double originalMean = calculateMean(originalData, label);
+//        Double originalStd = calculateStd(originalData, label, originalMean);
+//        Double originalRange = calculateRange(originalData, label);
+//
+//        List<Map<String, Object>> m4sampleData = new M4SampleController().dataPoints(
+//                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype);
+//        Double m4sampleMean = calculateMean(m4sampleData, label);
+//        Double m4sampleStd = calculateStd(m4sampleData, label, m4sampleMean);
+//        Double m4sampleRange = calculateRange(m4sampleData, label);
+//
+//
+//        List<Map<String, Object>> gradsampleData = new GradSampleController().dataPoints(
+//                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, 50, 4, "map", ip, port, amount, dbtype);
+//        Double gradsampleMean = calculateMean(gradsampleData, label);
+//        Double gradsampleStd = calculateStd(gradsampleData, label, gradsampleMean);
+//        Double gradsampleRange = calculateRange(gradsampleData, label);
+//
+//
+//        List<Map<String, Object>> bucketsampleData = new BucketSampleController().dataPoints(
+//                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, 50, 4, "map", ip, port, Math.toIntExact(amount), dbtype);
+//        Double bucketsampleMean = calculateMean(bucketsampleData, label);
+//        Double bucketsampleStd = calculateStd(bucketsampleData, label, bucketsampleMean);
+//        Double bucketsampleRange = calculateRange(bucketsampleData, label);
 
-
-        List<Map<String, Object>> bucketsampleData = new BucketSampleController().dataPoints(
-                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, 50, 4, "map", ip, port, amount, dbtype);
-        Double bucketsampleMean = calculateMean(bucketsampleData, label);
-        Double bucketsampleStd = calculateStd(bucketsampleData, label, bucketsampleMean);
-        Double bucketsampleRange = calculateRange(bucketsampleData, label);
-
-        System.out.println("origin size:" + originalData.size());
-        System.out.println("amount: " + amount);
-//        System.out.println(String.format("mean: %s, %s, %s, %s", originalMean, m4sampleMean, gradsampleMean, bucketsampleMean));
-//        System.out.println(String.format("std: %s, %s, %s, %s", originalStd, m4sampleStd, gradsampleStd, bucketsampleStd));
-//        System.out.println(String.format("range: %s, %s, %s, %s", originalRange, m4sampleRange, gradsampleRange, bucketsampleRange));
-
-        Double max = null;
-        Double min = null;
-        for (Map<String, Object> map : originalData){
-            if(map.containsKey(label)){
-                Double v = (double)map.get(label);
-                max = max == null ? v : Math.max(max, v);
-                min = min == null ? v : Math.min(min, v);
-            }
-        }
-
-        double[] originalDistribution = calculateDistribution(originalData, label, max, min);
-        double[] m4sampleDistribution = calculateDistribution(m4sampleData, label, max, min);
-        double[] gradsampleDistribution = calculateDistribution(gradsampleData, label, max, min);
-        double[] bucketsampleDistribution = calculateDistribution(bucketsampleData, label, max, min);
-
-        System.out.println("m4sampleDistributionError: " + calculateDistributionError(originalDistribution, m4sampleDistribution));
-        System.out.println("gradsampleDistributionError: " +  + calculateDistributionError(originalDistribution, gradsampleDistribution));
-        System.out.println("bucketsampleDistributionError: " +  + calculateDistributionError(originalDistribution, bucketsampleDistribution));
-
+        List<Map<String, Object>> levelsampleData = new PublishController().publish(
+                url, username, password, database, timeseries, columns, starttime, endtime, amount, dbtype);
+        System.out.println(levelsampleData.size());
+        Double levelsampleMean = calculateMean(levelsampleData, sampleLabel);
+        System.out.println(levelsampleMean);
+        Double levelsampleStd = calculateStd(levelsampleData, sampleLabel, 1.1);
+        System.out.println(levelsampleStd);
+        Double levelsampleRange = calculateRange(levelsampleData, sampleLabel);
+        System.out.println(levelsampleRange);
+//
+//        System.out.println("origin size:" + originalData.size());
+//        System.out.println("amount: " + amount);
+////        System.out.println(String.format("mean: %s, %s, %s, %s", originalMean, m4sampleMean, gradsampleMean, bucketsampleMean));
+////        System.out.println(String.format("std: %s, %s, %s, %s", originalStd, m4sampleStd, gradsampleStd, bucketsampleStd));
+////        System.out.println(String.format("range: %s, %s, %s, %s", originalRange, m4sampleRange, gradsampleRange, bucketsampleRange));
+//
+//        Double max = null;
+//        Double min = null;
+//        for (Map<String, Object> map : originalData){
+//            if(map.containsKey(label)){
+//                Double v = (int)map.get(label) + 0.0;
+//                max = max == null ? v : Math.max(max, v);
+//                min = min == null ? v : Math.min(min, v);
+//            }
+//        }
+////
+//        double[] originalDistribution = calculateDistribution(originalData, label, max, min);
+////        double[] m4sampleDistribution = calculateDistribution(m4sampleData, label, max, min);
+////        double[] gradsampleDistribution = calculateDistribution(gradsampleData, label, max, min);
+//        double[] bucketsampleDistribution = calculateDistribution(bucketsampleData, label, max, min);
+//        double[] levelsampleDistribution = calculateDistribution(levelsampleData, label, max, min);
+////
+////        System.out.println("m4sampleDistributionError: " + calculateDistributionError(originalDistribution, m4sampleDistribution));
+////        System.out.println("gradsampleDistributionError: " +  + calculateDistributionError(originalDistribution, gradsampleDistribution));
+////        System.out.println("bucketsampleDistributionError: " +  + calculateDistributionError(originalDistribution, bucketsampleDistribution));
+//
+//        System.out.println(String.format("mean: %s, %s, %s", originalMean, bucketsampleMean, levelsampleMean));
+//        System.out.println(String.format("std: %s, %s, %s", originalStd, bucketsampleStd, levelsampleStd));
+//        System.out.println(String.format("range: %s, %s, %s", originalRange, bucketsampleRange, levelsampleRange));
+//        System.out.println(String.format("distribution: 0, %s, %s, %s", calculateDistributionError(originalDistribution, bucketsampleDistribution), calculateDistributionError(originalDistribution, levelsampleDistribution), calculateDistributionError(bucketsampleDistribution, levelsampleDistribution)));
 
     }
 
@@ -131,7 +151,7 @@ public class MeasureController {
         int count = 0;
         for (Map<String, Object> map : data){
             if(map.containsKey(valueLabel)){
-                sum += (double)map.get(valueLabel);
+                sum += (int)map.get(valueLabel) + 0.0;
                 count += 1;
             }
         }
@@ -143,7 +163,7 @@ public class MeasureController {
         int count = 0;
         for (Map<String, Object> map : data){
             if(map.containsKey(valueLabel)){
-                Double e = ((double)map.get(valueLabel) - mean);
+                Double e = ((int)map.get(valueLabel) + 0.0 - mean);
                 sum += e * e;
                 count += 1;
             }
@@ -156,7 +176,7 @@ public class MeasureController {
         Double min = null;
         for (Map<String, Object> map : data){
             if(map.containsKey(valueLabel)){
-                Double v = (double)map.get(valueLabel);
+                Double v = (int)map.get(valueLabel) + 0.0;
                 max = max == null ? v : Math.max(max, v);
                 min = min == null ? v : Math.min(min, v);
             }
@@ -171,7 +191,7 @@ public class MeasureController {
         for (Map<String, Object> map : data){
             if(map.containsKey(valueLabel)){
                 count++;
-                Double v = (double)map.get(valueLabel);
+                Double v = (int)map.get(valueLabel) + 0.0;
                 int index = (int)Math.round((v - min) / range * 10) ;
                 distribution[index] += 1;
             }

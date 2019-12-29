@@ -33,7 +33,7 @@ public class M4SampleController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
-    ) throws SQLException {
+    ) throws Exception {
 
         url = url.replace("\"", "");
         username = username.replace("\"", "");
@@ -71,8 +71,11 @@ public class M4SampleController {
             Map<String, Object> mini = datapoints.get(0);
             for(int i = 1; i < datapoints.size()-1; i++){
                 Map<String, Object> candi = datapoints.get(i);
-                if((Double)candi.get(label) >= (Double)maxi.get(label)) maxi = candi;
-                if((Double)candi.get(label) <= (Double)mini.get(label)) mini = candi;
+                Object value = candi.get(label);
+                if(value instanceof Double) maxi = (Double) value >= (Double)maxi.get(label) ? candi : maxi;
+                else if(value instanceof Integer) maxi = (Integer) value >= (Integer)maxi.get(label) ? candi : maxi;
+                else if(value instanceof Long) maxi = (Long) value >= (Double)maxi.get(label) ? candi : maxi;
+                else maxi = (Double) value >= (Double)maxi.get(label) ? candi : maxi;
             }
             res.add(maxi);
             res.add(mini);

@@ -18,7 +18,7 @@ import org.apache.iotdb.jdbc.IoTDBSQLException;
 @RestController
 public class PublishController {
 
-    private static final String slat = "&%333***&&%%$$#@";
+    private static final String salt = "&%12345***&&%%$$#@1";
 
     @RequestMapping("/publish")
     public List<Map<String, Object>> publish(
@@ -30,46 +30,37 @@ public class PublishController {
             @RequestParam(value="columns") String columns,
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
+            @RequestParam(value="amount", required = false) Long amount,
             @RequestParam(value="format", defaultValue = "map") String format
     ) throws SQLException {
-        Connection connection = IoTDBConnection.getConnection(url, username, password);
-        if (connection == null) {
-            System.out.println("get connection defeat");
-            return null;
-        }
-        long stime = System.currentTimeMillis();
-        Statement statement = connection.createStatement();
-        String sql = "SELECT " + columns.replace("\"", "") +
-                " FROM " + database.replace("\"", "") + "." + timeseries.replace("\"", "") +
-                (starttime == null ? "" : " WHERE time >= " + starttime.replace("\"", "")) +
-                (endtime   == null ? "" : " AND time <= " + endtime.replace("\"", ""));
-        ResultSet resultSet = statement.executeQuery(sql);
-        System.out.println("exec used time: " + (System.currentTimeMillis() - stime) + "ms");
-        List<Map<String, Object>> res = new LinkedList<>();
-        if (resultSet != null) {
-            final ResultSetMetaData metaData = resultSet.getMetaData();
-            final int columnCount = metaData.getColumnCount();
-            while (resultSet.next()) {
-                Map<String, Object> map = new HashMap<>();
-                for(int i = 1; i <= columnCount; i++){
-                    int type = metaData.getColumnType(i);
-                    String label = metaData.getColumnLabel(i);
-                    if(Types.INTEGER == type) map.put(label, resultSet.getInt(i));
-                    else if(Types.BIGINT == type) map.put(label, resultSet.getLong(i));
-                    else if(Types.BOOLEAN == type) map.put(label, resultSet.getString(i));
-                    else if(Types.FLOAT == type) map.put(label, resultSet.getFloat(i));
-                    else if(Types.DOUBLE == type) map.put(label, resultSet.getDouble(i));
-                    else if(Types.DATE == type) map.put(label, resultSet.getDate(i));
-                    else if(Types.TIME == type) map.put(label, resultSet.getTime(i));
-                    else if(Types.TIMESTAMP == type) map.put(label, resultSet.getTimestamp(i));
-                    else map.put(label, resultSet.getString(i));
-                }
-                res.add(map);
+        url = url.replace("\"", "");
+        username = username.replace("\"", "");
+        password = password.replace("\"", "");
+        database = database.replace("\"", "");
+        timeseries = timeseries.replace("\"", "");
+        columns = columns.replace("\"", "");
+        starttime = starttime == null ? null : starttime.replace("\"", "");
+        endtime = endtime == null ? null : endtime.replace("\"", "");
+        format = format.replace("\"", "");
+
+        String L0tableName = "L0" + ".M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
+        String L1tableName = "L1" + ".M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L0tableName, columns, salt).getBytes()).substring(0,8);
+        String L2tableName = "L2" + ".M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L1tableName, columns, salt).getBytes()).substring(0,8);
+
+        String[] tables = new String[3];
+        tables[0] = L2tableName;
+        tables[1] = L1tableName;
+        tables[2] = L0tableName;
+
+        List<Map<String, Object>> res = null;
+        for(String tableName : tables){
+            res = new DataPointController().dataPoints(
+                    "jdbc:iotdb://101.6.15.211:6667/", "root", "root", database, tableName, columns, starttime, endtime, null, null, "map", null, null, "iotdb");
+            if(res.size() >= amount) {
+                System.out.println(tableName);
+                break;
             }
         }
-        statement.close();
-        connection.close();
-        System.out.println("publish used time: " + (System.currentTimeMillis() - stime) + "ms");
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();
         for(Map<String, Object> map : res){

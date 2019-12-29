@@ -112,7 +112,8 @@ public class DataPointController {
                     " FROM " + timeseries +
                     (starttime == null ? "" : " WHERE time >= '" + starttime + "'") +
                     (endtime   == null ? "" : " AND time < '" + endtime + "'") +
-                    (conditions    == null ? "" : conditions);
+                    (conditions    == null ? "" : " " + conditions);
+            System.out.println(sql);
             ResultSet resultSet = pgtool.query(connection, sql);
 
             long stime = System.currentTimeMillis();

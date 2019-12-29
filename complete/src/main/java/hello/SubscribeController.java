@@ -1,8 +1,6 @@
 package hello;
 
 import java.security.NoSuchAlgorithmException;
-import java.util.LinkedList;
-import java.util.List;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -10,14 +8,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.util.DigestUtils;
 
 import java.sql.*;
-import java.util.Map;
-
-import org.apache.iotdb.jdbc.IoTDBSQLException;
 
 @RestController
 public class SubscribeController {
 
-    private static final String slat = "&%12345***&&%%$$#@1";
+    private static final String salt = "&%12345***&&%%$$#@1";
 
     @RequestMapping("/subscribe")
     public String subscribe(
@@ -40,12 +35,16 @@ public class SubscribeController {
         columns = columns.replace("\"", "");
         starttime = starttime.replace("\"", "");
 
-        String Identifier = String.format("%s,%s,%s,%s,%s,%s,%s", url, database, timeseries, columns, theta, k, slat);
-        String subId = "M" + DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
+        System.out.println(url);
+        System.out.println(database);
+        System.out.println(timeseries);
+        System.out.println(columns);
+
+        String subId = DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);
         System.out.println(subId);
 
-        SubscribeThread subscribeThread = new SubscribeThread(url, username, password, database, timeseries, columns, starttime, theta, k, subId);
-        subscribeThread.start();
+//        SubscribeThread subscribeThread = new SubscribeThread(url, username, password, database, timeseries, columns, starttime, theta, k, subId, 0, "iotdb");
+//        subscribeThread.start();
 
 //        // TODO: analyse column type
 //        String TYPE = "DOUBLE";

@@ -37,7 +37,7 @@ public class GradSampleController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
-    ) throws SQLException {
+    ) throws Exception {
 
         url = url.replace("\"", "");
         username = username.replace("\"", "");
@@ -74,21 +74,64 @@ public class GradSampleController {
             Queue<Integer> maxWeight = new LinkedList<>();
             Queue<Integer> minWeight = new LinkedList<>();
             for(int i = 0; i < datapoints.size(); i++){
+                double weight;
                 Map<String, Object> data = datapoints.get(i);
-                double weight = (Double)data.get(label);
+                Object value = data.get(label);
+                if(value instanceof Double) weight = (Double)value;
+                else if(value instanceof Integer) weight = ((Integer) value).doubleValue();
+                else if(value instanceof Long) weight = ((Long) value).doubleValue();
+                else weight = (Double)data.get(label);
+
                 double sim = 0.0;
-                for(int j = i; j > i - theta && j >= 0; j--) sim = Math.max(Math.abs((Double)data.get(label) - (Double)datapoints.get(j).get(label)), sim);
+                for(int j = i; j > i - theta && j >= 0; j--) {
+                    double diff;
+                    Object v1 = datapoints.get(j).get(label);
+                    Object v2 = data.get(label);
+                    if(v1 instanceof Double) diff = ((Double) v1).doubleValue() - ((Double)v2).doubleValue();
+                    else if(v1 instanceof Integer) diff = ((Integer) v1).doubleValue() - ((Integer)v2).doubleValue();
+                    else if(v1 instanceof Long) diff = ((Long) v1).doubleValue() - ((Long)v2).doubleValue();
+                    else diff = ((Double) v1).doubleValue() - ((Double)v2).doubleValue();
+                    sim = Math.max(Math.abs(diff), sim);
+                }
                 if(!maxWeight.isEmpty() && i - maxWeight.peek() >= theta) maxWeight.poll();
                 if(!minWeight.isEmpty() && i - minWeight.peek() >= theta) minWeight.poll();
-                while (!maxWeight.isEmpty() && weight >= (Double)datapoints.get(maxWeight.peek()).get(label)){
-                    maxWeight.poll();
+
+                while (!maxWeight.isEmpty()){
+                    Object v1 = datapoints.get(maxWeight.peek()).get(label);
+                    double v;
+                    if(v1 instanceof Double) v = ((Double) v1).doubleValue();
+                    else if(v1 instanceof Integer) v = ((Integer) v1).doubleValue();
+                    else if(v1 instanceof Long) v = ((Long) v1).doubleValue();
+                    else v = ((Double) v1).doubleValue();
+                    if(weight >= v) maxWeight.poll();
+                    else break;
                 }
                 maxWeight.offer(i);
-                while (!minWeight.isEmpty() && weight >= (Double)datapoints.get(minWeight.peek()).get(label)){
-                    minWeight.poll();
+                while (!minWeight.isEmpty()){
+                    Object v1 = datapoints.get(minWeight.peek()).get(label);
+                    double v;
+                    if(v1 instanceof Double) v = ((Double) v1).doubleValue();
+                    else if(v1 instanceof Integer) v = ((Integer) v1).doubleValue();
+                    else if(v1 instanceof Long) v = ((Long) v1).doubleValue();
+                    else v = ((Double) v1).doubleValue();
+                    if(weight >= v) minWeight.poll();
+                    else break;
                 }
                 minWeight.offer(i);
-                sim = Math.max((Double)datapoints.get(maxWeight.peek()).get(label) - weight, weight - (Double)datapoints.get(minWeight.peek()).get(label));
+
+                Object value1 = datapoints.get(maxWeight.peek()).get(label);
+                double maxValue, minValue;
+                if(value1 instanceof Double) maxValue = (Double)value1;
+                else if(value1 instanceof Integer) maxValue = ((Integer) value1).doubleValue();
+                else if(value1 instanceof Long) maxValue = ((Long) value1).doubleValue();
+                else maxValue = (Double)value1;
+
+                Object value2 = datapoints.get(minWeight.peek()).get(label);
+                if(value2 instanceof Double) minValue = (Double)value2;
+                else if(value2 instanceof Integer) minValue = ((Integer) value2).doubleValue();
+                else if(value2 instanceof Long) minValue = ((Long) value2).doubleValue();
+                else minValue = (Double)value2;
+                sim = Math.max(maxValue - weight, weight - minValue);
                 H.offer(new BucketDataPoint(data, i, sim));
             }
             for(int i = 0; i < k; i++){
@@ -97,7 +140,16 @@ public class GradSampleController {
                 while (c.getIter() != candi.size()){
                     if(!ids.contains(c.getId())){
                         double sim = 0;
-                        for(int j = i; j > i - theta && j >= 0 && !candi.contains(datapoints.get(j)); j--) sim = Math.max(Math.abs((Double)c.getData().get(label) - (Double)datapoints.get(j).get(label)), sim);
+                        for(int j = i; j > i - theta && j >= 0 && !candi.contains(datapoints.get(j)); j--) {
+                            double diff;
+                            Object v1 = c.getData().get(label);
+                            Object v2 = datapoints.get(j).get(label);
+                            if(v1 instanceof Double) diff = ((Double) v1).doubleValue() - ((Double)v2).doubleValue();
+                            else if(v1 instanceof Integer) diff = ((Integer) v1).doubleValue() - ((Integer)v2).doubleValue();
+                            else if(v1 instanceof Long) diff = ((Long) v1).doubleValue() - ((Long)v2).doubleValue();
+                            else diff = ((Double) v1).doubleValue() - ((Double)v2).doubleValue();
+                            sim = Math.max(Math.abs(diff), sim);
+                        }
                         c.setSim(sim);
                         c.setIter(candi.size());
                         H.offer(c);
