@@ -43,9 +43,14 @@ public class PublishController {
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
 
-        String L0tableName = "L0" + ".M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
-        String L1tableName = "L1" + ".M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L0tableName, columns, salt).getBytes()).substring(0,8);
-        String L2tableName = "L2" + ".M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L1tableName, columns, salt).getBytes()).substring(0,8);
+        String innerUrl = "jdbc:postgresql://192.168.10.172:5432/";
+        String innerUserName = "postgres";
+        String innerPassword = "1111aaaa";
+
+        // iotdb is . tsdb is _
+        String L0tableName = "L0" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
+        String L1tableName = "L1" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L0tableName, columns, salt).getBytes()).substring(0,8);
+        String L2tableName = "L2" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L1tableName, columns, salt).getBytes()).substring(0,8);
 
         String[] tables = new String[3];
         tables[0] = L2tableName;
@@ -54,27 +59,29 @@ public class PublishController {
 
         List<Map<String, Object>> res = null;
         for(String tableName : tables){
+            System.out.println(tableName);
             res = new DataPointController().dataPoints(
-                    "jdbc:iotdb://101.6.15.211:6667/", "root", "root", database, tableName, columns, starttime, endtime, null, null, "map", null, null, "iotdb");
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns, starttime, endtime, null, null, "map", null, null, "pg");
+            System.out.println(tableName);
             if(res.size() >= amount) {
-                System.out.println(tableName);
                 break;
             }
         }
-        if(format.equals("map")) return res;
-        List<Map<String, Object>> result = new LinkedList<>();
-        for(Map<String, Object> map : res){
-            Object time = map.get("Time");
-            for(Map.Entry<String, Object> entry : map.entrySet()){
-                String mapKey = entry.getKey();
-                if(mapKey.equals("Time")) continue;
-                Map<String, Object> m = new HashMap<>();
-                m.put("time", time);
-                m.put("label", mapKey);
-                m.put("value", entry.getValue());
-                result.add(m);
-            }
-        }
-        return result;
+        return res;
+//        if(format.equals("map")) return res;
+//        List<Map<String, Object>> result = new LinkedList<>();
+//        for(Map<String, Object> map : res){
+//            Object time = map.get("Time");
+//            for(Map.Entry<String, Object> entry : map.entrySet()){
+//                String mapKey = entry.getKey();
+//                if(mapKey.equals("Time")) continue;
+//                Map<String, Object> m = new HashMap<>();
+//                m.put("time", time);
+//                m.put("label", mapKey);
+//                m.put("value", entry.getValue());
+//                result.add(m);
+//            }
+//        }
+//        return result;
     }
 }

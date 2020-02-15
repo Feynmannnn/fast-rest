@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.util.DigestUtils;
 
 import java.sql.*;
+import java.util.List;
 
 @RestController
 public class SubscribeController {
@@ -23,8 +24,9 @@ public class SubscribeController {
             @RequestParam(value="timeseries") String timeseries,
             @RequestParam(value="columns") String columns,
             @RequestParam(value="starttime") String starttime,
-            @RequestParam(value="theta", defaultValue = "50") Integer theta,
-            @RequestParam(value="k", defaultValue = "4") Integer k
+            @RequestParam(value="theta", defaultValue = "30") Integer theta,
+            @RequestParam(value="k", defaultValue = "4") Integer k,
+            @RequestParam(value="ratio", defaultValue = "50") Integer ratio
     ) throws SQLException, NoSuchAlgorithmException {
 
         url = url.replace("\"", "");
@@ -45,6 +47,31 @@ public class SubscribeController {
 
 //        SubscribeThread subscribeThread = new SubscribeThread(url, username, password, database, timeseries, columns, starttime, theta, k, subId, 0, "iotdb");
 //        subscribeThread.start();
+//        List<Column> columnType = new ColumnController().columns(url, username, password, database, timeseries, null, null, "iotdb");
+        String TYPE = "integer";
+//        for(Column column : columnType){
+//            if(column.column.equals(columns)) TYPE = column.type;
+//        }
+
+        switch (TYPE){
+            case "INT32":
+                TYPE = "integer";
+                break;
+            case "INT64":
+                TYPE = "bigint";
+                break;
+            case "FLOAT":
+            case "DOUBLE":
+                TYPE = "double";
+                break;
+            default:
+                TYPE = "text";
+        }
+
+        System.out.println(TYPE);
+
+        KafkaSubscribeThread subscribeThread = new KafkaSubscribeThread(url, username, password, database, timeseries, columns, starttime, TYPE, theta, k, ratio, subId, 0, "iotdb");
+        subscribeThread.start();
 
 //        // TODO: analyse column type
 //        String TYPE = "DOUBLE";

@@ -1,10 +1,10 @@
 package hello;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.influxdb.dto.QueryResult;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -178,6 +178,29 @@ public class DataPointController {
             }
             influxDBConnection.close();
             System.out.println("used time: " + (System.currentTimeMillis() - stime) + "ms");
+        }
+        else if(dbtype.equals("kafka")){
+            System.out.println(dbtype);
+            Properties props = new Properties();
+            props.put("bootstrap.servers", "192.168.10.172:9093");
+            props.put("group.id", "test");
+            props.put("enable.auto.commit", "true");
+            props.put("auto.commit.interval.ms", "1000");
+            props.put("key.deserializer", "org.apache.kafka.common.serialization.LongDeserializer");
+            props.put("value.deserializer", "org.apache.kafka.common.serialization.IntegerDeserializer");
+            props.put("auto.offset.reset","earliest");
+
+            KafkaConsumer<Long, Integer> consumer = new KafkaConsumer<>(props);
+            consumer.subscribe(Arrays.asList(database));
+            ConsumerRecords<Long, Integer> records = consumer.poll(1000);
+            System.out.println(records.count());
+            for (ConsumerRecord<Long, Integer> record : records) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("time", record.key());
+                map.put("value", record.value());
+                res.add(map);
+            }
+            consumer.close();
         }
         else
             return null;

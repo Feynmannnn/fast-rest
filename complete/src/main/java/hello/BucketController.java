@@ -65,6 +65,7 @@ public class BucketController {
 
         List<Double> weights = new ArrayList<>();
         List<Long> timeWeights = new ArrayList<>();
+        List<Double> weightFactors = new ArrayList<>();
         List<Double> valueWeights = new ArrayList<>();
         List<Double> valuePresum = new ArrayList<>();
         List<Bucket> res = new LinkedList<>();
@@ -140,12 +141,18 @@ public class BucketController {
 
         long maxTimeWeight = 0;
         long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
+        long latestTimestamp = (Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
+        long firstTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
+        long timeRange = latestTimestamp - firstTimestamp;
         for(Map<String, Object> point : dataPoints){
             Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
             Long weight = Math.abs(t.getTime() - lastTimestamp);
             timeWeights.add(weight);
             lastTimestamp = t.getTime();
             maxTimeWeight = Math.max(maxTimeWeight, weight);
+
+            double factor = 0.3 + 0.7 * ((double)lastTimestamp - (double)(firstTimestamp))/ (double)(timeRange);
+            weightFactors.add(factor);
         }
         for(int i = 0; i < timeWeights.size(); i++){
             timeWeights.set(i, timeWeights.get(i) * 100 / (maxTimeWeight + 1));
@@ -185,7 +192,7 @@ public class BucketController {
 
         for(int i = 0; i < timeWeights.size(); i++){
             weights.add(timeWeights.get(i) + valueWeights.get(i));
-            dataPoints.get(i).put("weight", weights.get(i));
+            dataPoints.get(i).put("weight", weights.get(i) * weightFactors.get(i));
         }
 
         System.out.println("weight used " + (System.currentTimeMillis() - time) + "ms");

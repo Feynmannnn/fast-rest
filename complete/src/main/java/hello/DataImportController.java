@@ -25,7 +25,7 @@ public class DataImportController {
             Long patchSize,
             String dbType
     ) throws SQLException {
-        Long time = startTime == null ? new Date(2018, Calendar.JANUARY, 1).getTime() : startTime;
+        long time = new Date(2020 - 1900, Calendar.JANUARY, 1).getTime();
 
         // use iotdb as example
         Connection connection = IoTDBConnection.getConnection(url, username, password);
@@ -54,15 +54,16 @@ public class DataImportController {
         }
 
         // patch inserts
-        int round = 10000;
+        int round = 1000000;
         Random r = new Random();
+
+        long timer = System.currentTimeMillis();
         while (round > 0){
-            long timer = System.currentTimeMillis();
             String insertSql = "insert into %s.%s(timestamp, %s) values(%s, %s);";
             for(int i = 0; i < patchSize; i++){
                 // add one insert sql
                 statement.addBatch(String.format(insertSql, database, timeseires, column, time, r.nextInt(100)));
-                time += r.nextInt(500) + 1L;
+                time += 1L;
             }
 
             // send patch insert sql
@@ -70,14 +71,17 @@ public class DataImportController {
             statement.clearBatch();
 
             // wait for next round
-            try {
-                Thread.sleep(interval);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+//            try {
+//                Thread.sleep(interval);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
 
             round--;
-            System.out.println("round: " + round + ", usedtime: " + (System.currentTimeMillis() - timer));
+            if(round % 1000 == 0){
+                System.out.println("round: " + round + ", usedtime: " + (System.currentTimeMillis() - timer));
+                timer = System.currentTimeMillis();
+            }
         }
 
         connection.close();
@@ -88,14 +92,14 @@ public class DataImportController {
         String url = "jdbc:iotdb://101.6.15.211:6667/";
         String username = "root";
         String password = "root";
-        String database = "root.mxw2";
+        String database = "root.mxw";
         String timeseires = "s2";
         String column = "d3";
         String datatype = "INT32";
         String encoding = "PLAIN";
         Long startTime = null;
         Long interval = 300L;
-        Long patchSize = 10000L;
+        Long patchSize = 1000L;
         String dbType = "iotdb";
         dataImportController.dataImport(
                 url, username, password, database, timeseires, column, datatype, encoding, startTime, interval, patchSize, dbType

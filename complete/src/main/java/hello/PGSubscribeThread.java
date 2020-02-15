@@ -1,15 +1,21 @@
 package hello;
 
-import org.apache.iotdb.jdbc.IoTDBSQLException;
 import org.springframework.util.DigestUtils;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.util.*;
+import java.util.Date;
 
-public class SubscribeThread extends Thread {
+public class PGSubscribeThread extends Thread {
+
+    private static Comparator<Map<String, Object>> sampleComparator = new Comparator<Map<String, Object>>(){
+        @Override
+        public int compare(Map<String, Object> sampleDataPoint1, Map<String, Object> sampleDataPoint2){
+            long t1 = (Timestamp.valueOf(sampleDataPoint1.get("time").toString())).getTime();
+            long t2 = (Timestamp.valueOf(sampleDataPoint2.get("time").toString())).getTime();
+            return Math.round(t1-t2);
+        }
+    };
 
     private static final String salt = "&%12345***&&%%$$#@1";
     String url;
@@ -19,9 +25,11 @@ public class SubscribeThread extends Thread {
     String timeseries;
     String columns;
     String starttime;
+    String TYPE;
     Integer theta;
     Integer k;
-    Long interval = 1000L;
+    Integer ratio;
+    Long interval = 300L;
     String subId;
     String latestTime = "";
     Integer level = 0;
@@ -29,7 +37,7 @@ public class SubscribeThread extends Thread {
     String dbtype;
     long bucketSum;
 
-    SubscribeThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, Integer theta, Integer k, String subId, Integer level, String dbtype){
+    PGSubscribeThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String TYPE, Integer theta, Integer k, Integer ratio, String subId, Integer level, String dbtype){
         this.url = url;
         this.username = username;
         this.password = password;
@@ -37,13 +45,15 @@ public class SubscribeThread extends Thread {
         this.timeseries = timeseries;
         this.columns = columns;
         this.starttime = starttime;
+        this.TYPE = TYPE;
         this.theta = theta;
         this.k = k;
+        this.ratio = ratio;
         this.subId = subId;
         this.level = level;
         this.dbtype = dbtype;
         for(int i = 0; i < level; i++){
-            interval *= 30;
+            interval *= 50;
         }
     }
 
@@ -59,7 +69,8 @@ public class SubscribeThread extends Thread {
             e.printStackTrace();
         }
 
-        String tableName = "L" + level + ".M" + subId;
+        String pgDatabase = database.replace('.', '_');
+        String tableName = "L" + level + "_M" + subId;
         System.out.println(tableName);
 
         latestTime = starttime;
@@ -67,50 +78,48 @@ public class SubscribeThread extends Thread {
         // fetch [patchLimit] rows once
         Long patchLimit = 100000L;
 
-        // TODO: analyse column type
-        String TYPE = "INT32";
-        // TODO: analyse encoding type
-        String ENCODING = "PLAIN";
+        String innerUrl = "jdbc:postgresql://192.168.10.172:5432/";
+        String innerUserName = "postgres";
+        String innerPassword = "1111aaaa";
 
-        // use specified iotdb as midware storage
-        Connection connection = IoTDBConnection.getConnection(
-                "jdbc:iotdb://101.6.15.211:6667/",
-                "root",
-                "root"
+        PGConnection pgtool = new PGConnection(
+                innerUrl,
+                innerUserName,
+                innerPassword
         );
+        Connection connection = pgtool.getConn();
+
         if (connection == null) {
             System.out.println("get connection defeat");
             return;
         }
 
         // create database if not exist
-        Statement statement = null;
-        try {
-            statement = connection.createStatement();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        try {
-            String createDatabaseSql = String.format("SET STORAGE GROUP TO %s", database);
-            System.out.println(createDatabaseSql);
-            assert statement != null;
-            statement.execute(createDatabaseSql);
-        }catch (IoTDBSQLException e){
-            System.out.println(e.getMessage());
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        String createDatabaseSql = String.format("create database %s;", pgDatabase);
+        System.out.println(createDatabaseSql);
+        pgtool.queryUpdate(connection, createDatabaseSql);
+
+        pgtool = new PGConnection(
+                "jdbc:postgresql://192.168.10.172:5432/" + pgDatabase,
+                "postgres",
+                "1111aaaa"
+        );
+        connection = pgtool.getConn();
+        String extentionsql = "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;";
+        pgtool.queryUpdate(connection, extentionsql);
 
         // create table if not exist
-        try {
-            String createTableSql = "CREATE TIMESERIES %s.%s.%s WITH DATATYPE=%s, ENCODING=%s;";
-            statement.execute(String.format(createTableSql, database, tableName, columns, TYPE, ENCODING));
-            statement.execute(String.format(createTableSql, database, tableName, "weight", "DOUBLE", "PLAIN"));
-        }catch (IoTDBSQLException e){
-            System.out.println(e.getMessage());
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        String createTableSql =
+                "CREATE TABLE %s (" +
+                "   time    TIMESTAMPTZ         NOT NULL," +
+                "   weight  DOUBLE PRECISION    NOT NULL," +
+                "   %s      %s                  NOT NULL" +
+                ");";
+        String createHyperTableSql = "select create_hypertable('%s', 'time');";
+        System.out.println(String.format(createTableSql, tableName, columns, TYPE));
+        pgtool.queryUpdate(connection, String.format(createTableSql, tableName, columns, TYPE));
+        System.out.println(String.format(createHyperTableSql, tableName));
+        pgtool.queryUpdate(connection, String.format(createHyperTableSql, tableName));
 
         //delete sample if already exist
         // TODO: check if the subId exists, but for now(2019/12/29) iotdb not support delete >= xxx
@@ -126,7 +135,7 @@ public class SubscribeThread extends Thread {
 
         // different value column name for different database
         String iotdbLabel = database + "." + timeseries + "." +columns;
-        String weightLabel = database + "." + timeseries + ".weight";
+        String weightLabel = dbtype.equals("iotdb") ? database + "." + timeseries + ".weight" : "weight";
         System.out.println(weightLabel);
         String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
         String timelabel = "time";
@@ -136,7 +145,20 @@ public class SubscribeThread extends Thread {
         List<Map<String, Object>> linkedDataPoints = null;
         try {
             linkedDataPoints = new DataPointController().dataPoints(
-                    url, username, password, database, timeseries, level > 0 ? columns + ",weight" : columns, latestTime, null, String.format(" limit %s", patchLimit), null, "map", null, null, "iotdb");
+                    level > 0 ? innerUrl : url,
+                    level > 0 ? innerUserName : username,
+                    level > 0 ? innerPassword : password,
+                    level > 0 ? pgDatabase : database,
+                    timeseries,
+                    level > 0 ? columns + ", weight" : columns,
+                    latestTime,
+                    null,
+                    String.format(" limit %s", patchLimit),
+                    null,
+                    "map",
+                    null,
+                    null,
+                    level > 0 ? "pg" : "iotdb");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -223,7 +245,7 @@ public class SubscribeThread extends Thread {
 
         // 二分查找合适的桶权重和bucketSum
         List<Bucket> buckets = new LinkedList<>();
-        int n = dataPoints.size() / 200;
+        int n = dataPoints.size() / (ratio * k);
         long lo = 0, hi = 200 * weights.size();
         while (lo < hi){
             long mid = lo + (hi - lo >> 1);
@@ -297,23 +319,25 @@ public class SubscribeThread extends Thread {
         }
         System.out.println("bucketsample used time: " + (System.currentTimeMillis() - st) + "ms");
 
+        // 删除上次的最后一桶
+        String deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
+        System.out.println(deletesql);
+        pgtool.queryUpdate(connection, deletesql);
+
         // sample complete, persist to iotdb
-        String batchInsertFormat = "insert into %s.%s(timestamp, %s) values(%s, %s);";
-        String weightInsertFormat = "insert into %s.%s(timestamp, weight) values(%s, %s);";
+        String batchInsertFormat = "insert into %s (time, weight, %s) values ('%s', %s, %s);";
+
+        Collections.sort(sampleDataPoints, sampleComparator);
+
+        List<String> sqls = new LinkedList<>();
         for(Map<String, Object> map : sampleDataPoints){
-            try {
-                statement.addBatch(String.format(batchInsertFormat, database, tableName, columns, map.get("time").toString().substring(0,19), map.get(label)));
-                statement.addBatch(String.format(weightInsertFormat, database, tableName, map.get("time").toString().substring(0,19), map.get("weight")));
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight"), map.get(label)));
         }
-        try {
-            statement.executeBatch();
-            statement.clearBatch();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        StringBuilder sb = new StringBuilder();
+        for(String sql : sqls) sb.append(sql);
+        String bigSql = sb.toString();
+        pgtool.queryUpdate(connection, bigSql);
+
 
         // process the newest bucket
         newcomingData = buckets.get(buckets.size()-1).getDataPoints();
@@ -323,8 +347,15 @@ public class SubscribeThread extends Thread {
         String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
         String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
         System.out.println(newSubId);
-        SubscribeThread subscribeThread = new SubscribeThread(url, username, password, database, tableName, columns, starttime, theta, k, newSubId, level+1, dbtype);
-        subscribeThread.start();
+        PGSubscribeThread pgsubscribeThread = new PGSubscribeThread(url, username, password, database, tableName, columns, starttime, TYPE, theta, k, ratio, newSubId, level+1, "pg");
+        pgsubscribeThread.start();
+
+        // 生命在于留白
+        try {
+            Thread.sleep(interval);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // keep sampling data
         while(true){
@@ -332,16 +363,29 @@ public class SubscribeThread extends Thread {
 
             try {
                 linkedDataPoints = new DataPointController().dataPoints(
-                        url, username, password, database, timeseries, level > 0 ? columns + ",weight" : columns, latestTime, null, String.format(" limit %s", patchLimit), null, "map", null, null, "iotdb");
+                        level > 0 ? innerUrl : url,
+                        level > 0 ? innerUserName : username,
+                        level > 0 ? innerPassword : password,
+                        level > 0 ? pgDatabase : database,
+                        timeseries,
+                        level > 0 ? columns + ", weight" : columns,
+                        latestTime,
+                        null,
+                        String.format(" limit %s", patchLimit),
+                        null,
+                        "map",
+                        null,
+                        null,
+                        level > 0 ? "pg" : "iotdb");
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            System.out.println("datasize: " + (linkedDataPoints == null ? "null": linkedDataPoints.size()));
-
             dataPoints = new ArrayList<>(newcomingData);
             dataPoints.addAll(linkedDataPoints);
 
             for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
+
+            Collections.sort(dataPoints, sampleComparator);
 
             // calc weights
             if(level == 0){
@@ -355,7 +399,7 @@ public class SubscribeThread extends Thread {
                 lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
                 for(Map<String, Object> point : dataPoints){
                     Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
-                    Long weight = Math.abs(t.getTime() - lastTimestamp);
+                    long weight = Math.abs(t.getTime() - lastTimestamp);
                     timeWeights.add(weight);
                     lastTimestamp = t.getTime();
                     maxTimeWeight = Math.max(maxTimeWeight, weight);
@@ -417,6 +461,8 @@ public class SubscribeThread extends Thread {
                 }
             }
 
+            buckets = new LinkedList<>();
+
             // divide buckets
             sum = 0;
             lastIndex = 0;
@@ -431,13 +477,14 @@ public class SubscribeThread extends Thread {
             }
             buckets.add(new Bucket(dataPoints.subList(lastIndex, dataPoints.size())));
 
+
             // 桶内采样
             sampleDataPoints = new LinkedList<>();
             st = System.currentTimeMillis();
-//            System.out.println("bucketsample started");
             for(Bucket bucket : buckets){
                 List<Map<String, Object>> datapoints = bucket.getDataPoints();
                 if(datapoints.size() <= k){
+                    System.out.println("meet <= " + k);
                     sampleDataPoints.addAll(datapoints);
                     continue;
                 }
@@ -470,7 +517,6 @@ public class SubscribeThread extends Thread {
                 }
                 sampleDataPoints.addAll(candi);
             }
-//            System.out.println("bucketsample used time: " + (System.currentTimeMillis() - st) + "ms");
 
 
             // sample complete, persist to iotdb
@@ -484,35 +530,28 @@ public class SubscribeThread extends Thread {
             }
 
             // 删除上次的最后一桶
-//            try {
-//                String deletesql = String.format("delete from %s.%s.%s where time>=%s", database, tableName, columns, latestTime);
-//                System.out.println(deletesql);
-//                statement.execute(deletesql);
-//            }catch (IoTDBSQLException e){
-//                System.out.println(e.getMessage());
-//            } catch (SQLException e) {
-//                e.printStackTrace();
-//            }
+            deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
+            System.out.println(deletesql);
+            pgtool.queryUpdate(connection, deletesql);
 
             // 写入新一批样本
+            Collections.sort(sampleDataPoints, sampleComparator);
+
+            sqls = new LinkedList<>();
             for(Map<String, Object> map : sampleDataPoints){
-                try {
-                    statement.addBatch(String.format(batchInsertFormat, database, tableName, columns, map.get("time").toString().substring(0,19), map.get(label)));
-                    statement.addBatch(String.format(weightInsertFormat, database, tableName, map.get("time").toString().substring(0,19), map.get("weight")));
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
+                sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight"), map.get(label)));
             }
-            try {
-                statement.executeBatch();
-                statement.clearBatch();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            sb = new StringBuilder();
+            for(String sql : sqls) sb.append(sql);
+            bigSql = sb.toString();
+            pgtool.queryUpdate(connection, bigSql);
 
             // 单独处理最新桶
             newcomingData = buckets.get(buckets.size()-1).getDataPoints();
             latestTime = newcomingData.get(0).get("time").toString().substring(0,19);
+
+            System.out.println("buckets.size():" + buckets.size());
+            System.out.println(String.format("L%d data size: %s, sample size: %s, ratio: %s", level, dataPoints.size(), sampleDataPoints.size(), dataPoints.size() / sampleDataPoints.size()));
 
             // 生命在于留白
             try {
