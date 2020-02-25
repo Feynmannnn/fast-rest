@@ -1,22 +1,20 @@
-package hello;
+package hello;import java.util.*;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.sql.*;
+import java.util.Date;
+
 import org.apache.iotdb.jdbc.IoTDBSQLException;
 
+import javax.script.*;
+
 @RestController
-public class M4SampleController {
-    @RequestMapping("/m4sample")
+public class SimpleM4Controller {
+    @RequestMapping("/simplem4")
     public List<Map<String, Object>> dataPoints(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
             @RequestParam(value="username", defaultValue = "root") String username,
@@ -34,7 +32,6 @@ public class M4SampleController {
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
     ) throws Exception {
-
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
@@ -50,10 +47,41 @@ public class M4SampleController {
         port = port == null ? null : port.replace("\"", "");
         query = query == null ? null : query.replace("\"", "");
 
-        String iotdblabel = database + "." + timeseries + "." +columns;
-        String label = dbtype.equals("iotdb") ? iotdblabel : columns;
+        List<Map<String, Object>> linkedDataPoints = new DataPointController().dataPoints(
+                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, dbtype);
+        if(linkedDataPoints.size() < 2) return null;
 
-        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype);
+        List<Map<String, Object>> dataPoints = new ArrayList<>(linkedDataPoints);
+
+        Long firstTimestamp = (Timestamp.valueOf(dataPoints.get(0).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+        Long lastTimestamp = (Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+        Long timestampRange = lastTimestamp - firstTimestamp;
+        Long timeinteval = timestampRange / amount * 4;
+
+        String iotdbLabel = database + "." + timeseries + "." +columns;
+        String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
+        String timelabel = "time";
+
+        for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
+        List<Bucket> buckets = new LinkedList<>();
+
+        int p = 0, q = 0;
+        int n = dataPoints.size();
+        lastTimestamp = firstTimestamp + timeinteval;
+        while (p < n){
+            Long dataTimestamp = (Timestamp.valueOf(dataPoints.get(p).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+            if(dataTimestamp > lastTimestamp){
+                buckets.add(new Bucket(dataPoints.subList(q, p)));
+                q = p;
+                lastTimestamp += timeinteval;
+            }
+            p++;
+        }
+        buckets.add(new Bucket(dataPoints.subList(q, p)));
+
+        String iotdblabel = database + "." + timeseries + "." +columns;
+        label = dbtype.equals("iotdb") ? iotdblabel : columns;
+
         List<Map<String, Object>> res = new LinkedList<>();
         long st = System.currentTimeMillis();
         System.out.println("m4sample started");
@@ -89,7 +117,7 @@ public class M4SampleController {
         System.out.println("m4sample used time: " + (System.currentTimeMillis() - st) + "ms");
         if(format.equals("map")) return res;
 
-        String timelabel = "time";
+        timelabel = "time";
 
         List<Map<String, Object>> result = new LinkedList<>();
         for(Map<String, Object> map : res){
@@ -106,5 +134,4 @@ public class M4SampleController {
         }
         return result;
     }
-
 }

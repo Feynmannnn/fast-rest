@@ -151,11 +151,15 @@ public class BucketController {
             lastTimestamp = t.getTime();
             maxTimeWeight = Math.max(maxTimeWeight, weight);
 
-            double factor = 0.3 + 0.7 * ((double)lastTimestamp - (double)(firstTimestamp))/ (double)(timeRange);
+//            double factor = 0.3 + 0.7 * ((double)lastTimestamp - (double)(firstTimestamp))/ (double)(timeRange);
+            double factor = 1;
             weightFactors.add(factor);
         }
-        for(int i = 0; i < timeWeights.size(); i++){
+
+        timeWeights.set(0, timeWeights.get(0) * 100 / (maxTimeWeight + 1));
+        for(int i = 1; i < timeWeights.size(); i++){
             timeWeights.set(i, timeWeights.get(i) * 100 / (maxTimeWeight + 1));
+            timeWeights.set(i-1, Math.max(timeWeights.get(i), timeWeights.get(i-1)));
         }
 
         Double valueSum = 0.0;
@@ -172,21 +176,28 @@ public class BucketController {
             valuePresum.add(valueSum);
         }
         double maxValueWeight = 0.0;
+//        long fidelity = 5L;
+        Object lastValue = dataPoints.get(0).get(label);
         for(int i = 0; i < valuePresum.size(); i++){
-            Double divident = i > 50 ? valuePresum.get(i) - valuePresum.get(i-50) : valuePresum.get(i);
-            Double dividor = i > 50 ? 50L : i+1.0;
+//            Double divident = i > fidelity ? valuePresum.get(i) - valuePresum.get((int) (i-fidelity)) : valuePresum.get(i);
+//            Double dividor = i > fidelity ? fidelity : i+1.0;
             Object value = dataPoints.get(i).get(label);
             double v;
-            if(value instanceof Double) v = Math.abs((Double) value);
-            else if(value instanceof Long) v = Math.abs(((Long) value).doubleValue());
-            else if(value instanceof Integer) v = Math.abs(((Integer) value).doubleValue());
-            else v = Math.abs((Double) value);
-            double valueWeight = Math.abs(v - (divident/dividor));
+            if(value instanceof Double) v = Math.abs((Double) value - (Double) lastValue);
+            else if(value instanceof Long) v = Math.abs(((Long) value).doubleValue() - ((Long) lastValue).doubleValue());
+            else if(value instanceof Integer) v = Math.abs(((Integer) value).doubleValue() - ((Integer) lastValue).doubleValue());
+            else v = Math.abs((Double) value - (Double) lastValue);
+//            double valueWeight = Math.abs(v - (divident/dividor));
+            double valueWeight = Math.abs(v);
             valueWeights.add(valueWeight);
             maxValueWeight = Math.max(maxValueWeight, valueWeight);
+            lastValue = value;
         }
-        for(int i = 0; i < valueWeights.size(); i++){
+
+        valueWeights.set(0, valueWeights.get(0) * 100 / (maxValueWeight + 1));
+        for(int i = 1; i < valueWeights.size(); i++){
             valueWeights.set(i, valueWeights.get(i) * 100 / maxValueWeight);
+            valueWeights.set(i-1, Math.max(valueWeights.get(i), valueWeights.get(i-1)));
             dataPoints.get(i).put("Type", valueWeights.get(i) > 90 ? 2L : timeWeights.get(i) > 10 ? 1L : 0L);
         }
 

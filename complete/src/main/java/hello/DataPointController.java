@@ -16,6 +16,15 @@ import org.apache.iotdb.jdbc.IoTDBSQLException;
 @RestController
 public class DataPointController {
 
+    private static Comparator<Map<String, Object>> sampleComparator = new Comparator<Map<String, Object>>(){
+        @Override
+        public int compare(Map<String, Object> sampleDataPoint1, Map<String, Object> sampleDataPoint2){
+            long t1 = (Timestamp.valueOf(sampleDataPoint1.get("time").toString())).getTime();
+            long t2 = (Timestamp.valueOf(sampleDataPoint2.get("time").toString())).getTime();
+            return Math.round(t1-t2);
+        }
+    };
+
     @RequestMapping("/data")
     public List<Map<String, Object>> dataPoints(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
@@ -204,6 +213,8 @@ public class DataPointController {
         }
         else
             return null;
+
+        Collections.sort(res, sampleComparator);
 
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();

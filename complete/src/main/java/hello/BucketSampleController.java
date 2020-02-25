@@ -61,6 +61,8 @@ public class BucketSampleController {
         if(buckets == null) return null;
 
         List<Map<String, Object>> res = new LinkedList<Map<String, Object>>();
+        // add sepecial first data point
+        res.add(buckets.get(0).getDataPoints().get(0));
         long st = System.currentTimeMillis();
         System.out.println("bucketsample started");
         for(Bucket bucket : buckets){
@@ -98,6 +100,10 @@ public class BucketSampleController {
             }
             res.addAll(candi);
         }
+        // add sepecial last data point
+        List<Map<String, Object>> lastBucket = buckets.get(buckets.size()-1).getDataPoints();
+        if(lastBucket.size() > 0) res.add(lastBucket.get(lastBucket.size()-1));
+
         System.out.println("bucketsample used time: " + (System.currentTimeMillis() - st) + "ms");
         if(format.equals("map")) return res;
 
