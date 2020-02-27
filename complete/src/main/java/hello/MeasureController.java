@@ -30,7 +30,9 @@ public class MeasureController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="amount", required = false) Integer amount,
-            @RequestParam(value="method", defaultValue = "iotdb") String method
+            @RequestParam(value="method", defaultValue = "iotdb") String method,
+            @RequestParam(value="percent", defaultValue = "99995") Long percent,
+            @RequestParam(value="alpha", defaultValue = "1") Double alpha
     ) throws SQLException {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
@@ -68,6 +70,8 @@ public class MeasureController {
         String port = null;
         String query = null;
         Long amount = 500L;
+        Long percent = 99995L;
+        Double alpha = 1.0;
 
         String iotdblabel = database + "." + timeseries + "." +columns;
         System.out.println(iotdblabel);
@@ -99,7 +103,7 @@ public class MeasureController {
 //
 //
         List<Map<String, Object>> bucketsampleData = new BucketSampleController().dataPoints(
-                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, 50, 4, "map", ip, port, Math.toIntExact(amount), dbtype);
+                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, 50, 4, "map", ip, port, Math.toIntExact(amount), dbtype, percent, alpha);
         Double bucketsampleMean = calculateMean(bucketsampleData, label);
         Double bucketsampleStd = calculateStd(bucketsampleData, label, bucketsampleMean);
         Double bucketsampleRange = calculateRange(bucketsampleData, label);

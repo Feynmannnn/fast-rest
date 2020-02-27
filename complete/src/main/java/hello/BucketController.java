@@ -33,7 +33,9 @@ public class BucketController {
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
-            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
+            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
+            @RequestParam(value="percent", defaultValue = "99995") Long percent,
+            @RequestParam(value="alpha", defaultValue = "1") Double alpha
     ) throws Exception {
 
         url = url.replace("\"", "");
@@ -65,8 +67,11 @@ public class BucketController {
 
         List<Double> weights = new ArrayList<>();
         List<Long> timeWeights = new ArrayList<>();
+        List<Long> timeWeightsStat = new ArrayList<>();
         List<Double> weightFactors = new ArrayList<>();
         List<Double> valueWeights = new ArrayList<>();
+        List<Double> valueWeightsStat = new ArrayList<>();
+        List<Double> gradWeights = new ArrayList<>();
         List<Double> valuePresum = new ArrayList<>();
         List<Bucket> res = new LinkedList<>();
 
@@ -139,7 +144,7 @@ public class BucketController {
 //            e.printStackTrace();
 //        }
 
-        long maxTimeWeight = 0;
+//        long maxTimeWeight = 0;
         long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
         long latestTimestamp = (Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
         long firstTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
@@ -148,37 +153,44 @@ public class BucketController {
             Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
             Long weight = Math.abs(t.getTime() - lastTimestamp);
             timeWeights.add(weight);
+            timeWeightsStat.add(weight);
             lastTimestamp = t.getTime();
-            maxTimeWeight = Math.max(maxTimeWeight, weight);
+//            maxTimeWeight = Math.max(maxTimeWeight, weight);
 
 //            double factor = 0.3 + 0.7 * ((double)lastTimestamp - (double)(firstTimestamp))/ (double)(timeRange);
-            double factor = 1;
-            weightFactors.add(factor);
+//            double factor = 1;
+//            weightFactors.add(factor);
         }
 
-        timeWeights.set(0, timeWeights.get(0) * 100 / (maxTimeWeight + 1));
+        Long[] timeWeightsArray = timeWeightsStat.toArray(new Long[0]);
+        Arrays.sort(timeWeightsArray);
+        System.out.println("percent" + percent);
+        Long timeWeightLimit = timeWeightsArray[(int)(timeWeightsArray.length * percent / 100000)];
+        System.out.println("timeWeightLimit:" + timeWeightLimit);
+
+        timeWeights.set(0, timeWeights.get(0) * 100 / (timeWeightLimit + 1));
         for(int i = 1; i < timeWeights.size(); i++){
-            timeWeights.set(i, timeWeights.get(i) * 100 / (maxTimeWeight + 1));
+            timeWeights.set(i, timeWeights.get(i) >= timeWeightLimit ? 100 : timeWeights.get(i) * 100 / (timeWeightLimit + 1));
             timeWeights.set(i-1, Math.max(timeWeights.get(i), timeWeights.get(i-1)));
         }
 
-        Double valueSum = 0.0;
-        for(Map<String, Object> point : dataPoints){
-            Double weight;
-            Object value = point.get(label);
-            if(value instanceof Double) weight = Math.abs((Double) value);
-            else if(value instanceof Long) weight = Math.abs(((Long) value).doubleValue());
-            else if(value instanceof Integer) weight = Math.abs(((Integer) value).doubleValue());
-            else if(value instanceof Boolean) throw new Exception("not support sample boolean value");
-            else if(value instanceof String) throw new Exception("not support sample string value");
-            else weight = Math.abs((Double) value);
-            valueSum += weight;
-            valuePresum.add(valueSum);
-        }
+//        Double valueSum = 0.0;
+//        for(Map<String, Object> point : dataPoints){
+//            Double weight;
+//            Object value = point.get(label);
+//            if(value instanceof Double) weight = Math.abs((Double) value);
+//            else if(value instanceof Long) weight = Math.abs(((Long) value).doubleValue());
+//            else if(value instanceof Integer) weight = Math.abs(((Integer) value).doubleValue());
+//            else if(value instanceof Boolean) throw new Exception("not support sample boolean value");
+//            else if(value instanceof String) throw new Exception("not support sample string value");
+//            else weight = Math.abs((Double) value);
+//            valueSum += weight;
+//            valuePresum.add(valueSum);
+//        }
         double maxValueWeight = 0.0;
 //        long fidelity = 5L;
         Object lastValue = dataPoints.get(0).get(label);
-        for(int i = 0; i < valuePresum.size(); i++){
+        for(int i = 0; i < dataPoints.size(); i++){
 //            Double divident = i > fidelity ? valuePresum.get(i) - valuePresum.get((int) (i-fidelity)) : valuePresum.get(i);
 //            Double dividor = i > fidelity ? fidelity : i+1.0;
             Object value = dataPoints.get(i).get(label);
@@ -190,6 +202,7 @@ public class BucketController {
 //            double valueWeight = Math.abs(v - (divident/dividor));
             double valueWeight = Math.abs(v);
             valueWeights.add(valueWeight);
+            valueWeightsStat.add(valueWeight);
             maxValueWeight = Math.max(maxValueWeight, valueWeight);
             lastValue = value;
         }
@@ -201,9 +214,10 @@ public class BucketController {
             dataPoints.get(i).put("Type", valueWeights.get(i) > 90 ? 2L : timeWeights.get(i) > 10 ? 1L : 0L);
         }
 
+        System.out.println("alpha" + alpha);
         for(int i = 0; i < timeWeights.size(); i++){
-            weights.add(timeWeights.get(i) + valueWeights.get(i));
-            dataPoints.get(i).put("weight", weights.get(i) * weightFactors.get(i));
+            weights.add(Math.max(timeWeights.get(i), valueWeights.get(i)) * alpha + Math.min(timeWeights.get(i), valueWeights.get(i)));
+            dataPoints.get(i).put("weight", weights.get(i));
         }
 
         System.out.println("weight used " + (System.currentTimeMillis() - time) + "ms");

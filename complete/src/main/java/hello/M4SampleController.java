@@ -32,7 +32,9 @@ public class M4SampleController {
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
-            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
+            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
+            @RequestParam(value="percent", defaultValue = "99995") Long percent,
+            @RequestParam(value="alpha", defaultValue = "1") Double alpha
     ) throws Exception {
 
         url = url.replace("\"", "");
@@ -53,7 +55,7 @@ public class M4SampleController {
         String iotdblabel = database + "." + timeseries + "." +columns;
         String label = dbtype.equals("iotdb") ? iotdblabel : columns;
 
-        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype);
+        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
         List<Map<String, Object>> res = new LinkedList<>();
         long st = System.currentTimeMillis();
         System.out.println("m4sample started");
