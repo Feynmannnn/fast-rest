@@ -30,17 +30,14 @@ public class BucketSampleController {
             @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="conditions", required = false) String conditions,
             @RequestParam(value="query", required = false) String query,
-            @RequestParam(value="theta", defaultValue = "50") Integer theta,
-            @RequestParam(value="k", defaultValue = "4") Integer k,
             @RequestParam(value="format", defaultValue = "map") String format,
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
-            @RequestParam(value="percent", defaultValue = "99995") Long percent,
-            @RequestParam(value="alpha", defaultValue = "1") Double alpha
+            @RequestParam(value="percent", defaultValue = "99996") Long percent,
+            @RequestParam(value="alpha", defaultValue = "2.3") Double alpha
     ) throws Exception {
-
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
@@ -58,58 +55,25 @@ public class BucketSampleController {
 
         String iotdblabel = database + "." + timeseries + "." +columns;
         String label = dbtype.equals("iotdb") ? iotdblabel : columns;
+        String timelabel = "time";
 
-        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query,"map", ip, port, amount, dbtype, percent, alpha);
-        if(buckets == null) return null;
-
-        List<Map<String, Object>> res = new LinkedList<Map<String, Object>>();
-        // add sepecial first data point
-        res.add(buckets.get(0).getDataPoints().get(0));
+        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
+        List<Map<String, Object>> res = new LinkedList<>();
         long st = System.currentTimeMillis();
         System.out.println("bucketsample started");
+
         for(Bucket bucket : buckets){
             List<Map<String, Object>> datapoints = bucket.getDataPoints();
-            if(datapoints.size() <= k){
+            if(datapoints.size() <= 4){
                 res.addAll(datapoints);
                 continue;
             }
-
-            Set<Map<String, Object>> candi = new HashSet<>();
-            Set<Integer> ids = new HashSet<>();
-            Queue<BucketDataPoint> H = new PriorityQueue<>(datapoints.size(), bucketComparator);
-            for(int i = 0; i < datapoints.size(); i++){
-                Map<String, Object> data = datapoints.get(i);
-                double sim = (Double) data.get("weight") + 0.0;
-                H.offer(new BucketDataPoint(data, i, sim));
-            }
-            for(int i = 0; i < k; i++){
-                BucketDataPoint c = H.poll();
-                if(c == null) break;
-                while (c.getIter() != candi.size()){
-                    if(!ids.contains(c.getId())){
-                        c.setIter(candi.size());
-                        H.offer(c);
-                    }
-                    c = H.poll();
-                    if(c == null) break;
-                }
-                if(c == null) break;
-                candi.add(c.getData());
-                int id = c.getId();
-                for(int j = id; j > id - theta && j >= 0; j--){
-                    ids.add(j);
-                }
-            }
-            res.addAll(candi);
+            Collections.shuffle(datapoints);
+            res.addAll(datapoints.subList(0, 4));
         }
-        // add sepecial last data point
-        List<Map<String, Object>> lastBucket = buckets.get(buckets.size()-1).getDataPoints();
-        if(lastBucket.size() > 0) res.add(lastBucket.get(lastBucket.size()-1));
 
-        System.out.println("bucketsample used time: " + (System.currentTimeMillis() - st) + "ms");
         if(format.equals("map")) return res;
 
-        String timelabel = "time";
         List<Map<String, Object>> result = new LinkedList<>();
         for(Map<String, Object> map : res){
             Object time = map.get(timelabel);
@@ -125,6 +89,4 @@ public class BucketSampleController {
         }
         return result;
     }
-
-
 }

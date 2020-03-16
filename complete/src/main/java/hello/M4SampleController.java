@@ -33,8 +33,8 @@ public class M4SampleController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
-            @RequestParam(value="percent", defaultValue = "99995") Long percent,
-            @RequestParam(value="alpha", defaultValue = "1") Double alpha
+            @RequestParam(value="percent", defaultValue = "99996") Long percent,
+            @RequestParam(value="alpha", defaultValue = "2.3") Double alpha
     ) throws Exception {
 
         url = url.replace("\"", "");

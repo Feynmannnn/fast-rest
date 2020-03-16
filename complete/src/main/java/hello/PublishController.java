@@ -43,6 +43,8 @@ public class PublishController {
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
 
+        Long t = System.currentTimeMillis();
+
         String innerUrl = "jdbc:postgresql://192.168.10.172:5432/";
         String innerUserName = "postgres";
         String innerPassword = "1111aaaa";
@@ -67,6 +69,8 @@ public class PublishController {
                 break;
             }
         }
+
+        System.out.println("publish used time:" + (System.currentTimeMillis() - t));
         return res;
 //        if(format.equals("map")) return res;
 //        List<Map<String, Object>> result = new LinkedList<>();

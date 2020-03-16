@@ -17,6 +17,7 @@ public class PGSubscribeThread extends Thread {
         }
     };
 
+    public volatile boolean exit = false;
     private static final String salt = "&%12345***&&%%$$#@1";
     String url;
     String username;
@@ -36,8 +37,11 @@ public class PGSubscribeThread extends Thread {
     List<Map<String, Object>> newcomingData = new LinkedList<>();
     String dbtype;
     long bucketSum;
+    final long setuptime;
+    long throughput;
+    long batchlimit;
 
-    PGSubscribeThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String TYPE, Integer theta, Integer k, Integer ratio, String subId, Integer level, String dbtype){
+    PGSubscribeThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String TYPE, Integer theta, Integer k, Integer ratio, String subId, Integer level, String dbtype, Long batchlimit){
         this.url = url;
         this.username = username;
         this.password = password;
@@ -55,6 +59,9 @@ public class PGSubscribeThread extends Thread {
         for(int i = 0; i < level; i++){
             interval *= 50;
         }
+        this.setuptime = System.currentTimeMillis();
+        this.throughput = 0L;
+        this.batchlimit = batchlimit;
     }
 
     @Override
@@ -76,7 +83,7 @@ public class PGSubscribeThread extends Thread {
         latestTime = starttime;
 
         // fetch [patchLimit] rows once
-        Long patchLimit = 100000L;
+        Long patchLimit = batchlimit;
 
         String innerUrl = "jdbc:postgresql://192.168.10.172:5432/";
         String innerUserName = "postgres";
@@ -281,48 +288,78 @@ public class PGSubscribeThread extends Thread {
         // 进行桶内采样
         List<Map<String, Object>> sampleDataPoints = new LinkedList<>();
         long st = System.currentTimeMillis();
-        System.out.println("bucketsample started");
+        System.out.println("bucket sample started");
+//        for(Bucket bucket : buckets){
+//            List<Map<String, Object>> datapoints = bucket.getDataPoints();
+//            if(datapoints.size() <= k){
+//                sampleDataPoints.addAll(datapoints);
+//                continue;
+//            }
+//
+//            Set<Map<String, Object>> candi = new HashSet<>();
+//            Set<Integer> ids = new HashSet<>();
+//            Queue<BucketDataPoint> H = new PriorityQueue<>(datapoints.size(), BucketSampleController.bucketComparator);
+//            for(int i = 0; i < datapoints.size(); i++){
+//                Map<String, Object> data = datapoints.get(i);
+//                double sim = (Double) data.get("weight") + 0.0;
+//                H.offer(new BucketDataPoint(data, i, sim));
+//            }
+//            for(int i = 0; i < k; i++){
+//                BucketDataPoint c = H.poll();
+//                if(c == null) break;
+//                while (c.getIter() != candi.size()){
+//                    if(!ids.contains(c.getId())){
+//                        c.setIter(candi.size());
+//                        H.offer(c);
+//                    }
+//                    c = H.poll();
+//                    if(c == null) break;
+//                }
+//                if(c == null) break;
+//                candi.add(c.getData());
+//                int id = c.getId();
+//                for(int j = id; j > id - theta && j >= 0; j--){
+//                    ids.add(j);
+//                }
+//            }
+//            sampleDataPoints.addAll(candi);
+//        }
         for(Bucket bucket : buckets){
             List<Map<String, Object>> datapoints = bucket.getDataPoints();
-            if(datapoints.size() <= k){
+            if(datapoints.size() <= 4){
                 sampleDataPoints.addAll(datapoints);
                 continue;
             }
+            sampleDataPoints.add(datapoints.get(0));
+            Map<String, Object> maxi = datapoints.get(0);
+            Map<String, Object> mini = datapoints.get(0);
+            for(int i = 1; i < datapoints.size()-1; i++){
+                Map<String, Object> candi = datapoints.get(i);
+                Object value = candi.get(label);
+                if(value instanceof Double) maxi = (Double) value >= (Double)maxi.get(label) ? candi : maxi;
+                else if(value instanceof Integer) maxi = (Integer) value >= (Integer)maxi.get(label) ? candi : maxi;
+                else if(value instanceof Long) maxi = (Long) value >= (Long)maxi.get(label) ? candi : maxi;
+                else maxi = (Double) value >= (Double)maxi.get(label) ? candi : maxi;
 
-            Set<Map<String, Object>> candi = new HashSet<>();
-            Set<Integer> ids = new HashSet<>();
-            Queue<BucketDataPoint> H = new PriorityQueue<>(datapoints.size(), BucketSampleController.bucketComparator);
-            for(int i = 0; i < datapoints.size(); i++){
-                Map<String, Object> data = datapoints.get(i);
-                double sim = (Double) data.get("weight") + 0.0;
-                H.offer(new BucketDataPoint(data, i, sim));
+                if(value instanceof Double) mini = (Double) value <= (Double)mini.get(label) ? candi : mini;
+                else if(value instanceof Integer) mini = (Integer) value <= (Integer)mini.get(label) ? candi : mini;
+                else if(value instanceof Long) mini = (Long) value <= (Long)mini.get(label) ? candi : mini;
+                else mini = (Double) value <= (Double)mini.get(label) ? candi : mini;
             }
-            for(int i = 0; i < k; i++){
-                BucketDataPoint c = H.poll();
-                if(c == null) break;
-                while (c.getIter() != candi.size()){
-                    if(!ids.contains(c.getId())){
-                        c.setIter(candi.size());
-                        H.offer(c);
-                    }
-                    c = H.poll();
-                    if(c == null) break;
-                }
-                if(c == null) break;
-                candi.add(c.getData());
-                int id = c.getId();
-                for(int j = id; j > id - theta && j >= 0; j--){
-                    ids.add(j);
-                }
-            }
-            sampleDataPoints.addAll(candi);
+            sampleDataPoints.add(maxi);
+            sampleDataPoints.add(mini);
+            sampleDataPoints.add(datapoints.get(datapoints.size()-1));
         }
-        System.out.println("bucketsample used time: " + (System.currentTimeMillis() - st) + "ms");
+        System.out.println("bucket sample used time: " + (System.currentTimeMillis() - st) + "ms");
 
         // 删除上次的最后一桶
         String deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
         System.out.println(deletesql);
         pgtool.queryUpdate(connection, deletesql);
+
+        throughput += dataPoints.size();
+        long usedtime = System.currentTimeMillis() - setuptime;
+        System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, throughput / usedtime * 1000));
 
         // sample complete, persist to iotdb
         String batchInsertFormat = "insert into %s (time, weight, %s) values ('%s', %s, %s);";
@@ -344,21 +381,21 @@ public class PGSubscribeThread extends Thread {
         latestTime = newcomingData.get(0).get("time").toString().substring(0,19);
 
         // kick off the next level sample
-        String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
-        String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
-        System.out.println(newSubId);
-        PGSubscribeThread pgsubscribeThread = new PGSubscribeThread(url, username, password, database, tableName, columns, starttime, TYPE, theta, k, ratio, newSubId, level+1, "pg");
-        pgsubscribeThread.start();
+//        String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
+//        String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
+//        System.out.println(newSubId);
+//        PGSubscribeThread pgsubscribeThread = new PGSubscribeThread(url, username, password, database, tableName, columns, starttime, TYPE, theta, k, ratio, newSubId, level+1, "pg", batchlimit);
+//        pgsubscribeThread.start();
 
         // 生命在于留白
-        try {
-            Thread.sleep(interval);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            Thread.sleep(interval);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
 
         // keep sampling data
-        while(true){
+        while(!exit){
 //            System.out.println(latestTime);
 
             try {
@@ -483,56 +520,60 @@ public class PGSubscribeThread extends Thread {
             st = System.currentTimeMillis();
             for(Bucket bucket : buckets){
                 List<Map<String, Object>> datapoints = bucket.getDataPoints();
-                if(datapoints.size() <= k){
-                    System.out.println("meet <= " + k);
+                if(datapoints.size() <= 4){
                     sampleDataPoints.addAll(datapoints);
                     continue;
                 }
+                sampleDataPoints.add(datapoints.get(0));
+                Map<String, Object> maxi = datapoints.get(0);
+                Map<String, Object> mini = datapoints.get(0);
+                for(int i = 1; i < datapoints.size()-1; i++){
+                    Map<String, Object> candi = datapoints.get(i);
+                    Object value = candi.get(label);
+                    if(value instanceof Double) maxi = (Double) value >= (Double)maxi.get(label) ? candi : maxi;
+                    else if(value instanceof Integer) maxi = (Integer) value >= (Integer)maxi.get(label) ? candi : maxi;
+                    else if(value instanceof Long) maxi = (Long) value >= (Long)maxi.get(label) ? candi : maxi;
+                    else maxi = (Double) value >= (Double)maxi.get(label) ? candi : maxi;
 
-                Set<Map<String, Object>> candi = new HashSet<>();
-                Set<Integer> ids = new HashSet<>();
-                Queue<BucketDataPoint> H = new PriorityQueue<>(datapoints.size(), BucketSampleController.bucketComparator);
-                for(int i = 0; i < datapoints.size(); i++){
-                    Map<String, Object> data = datapoints.get(i);
-                    double sim = (Double) data.get("weight") + 0.0;
-                    H.offer(new BucketDataPoint(data, i, sim));
+                    if(value instanceof Double) mini = (Double) value <= (Double)mini.get(label) ? candi : mini;
+                    else if(value instanceof Integer) mini = (Integer) value <= (Integer)mini.get(label) ? candi : mini;
+                    else if(value instanceof Long) mini = (Long) value <= (Long)mini.get(label) ? candi : mini;
+                    else mini = (Double) value <= (Double)mini.get(label) ? candi : mini;
                 }
-                for(int i = 0; i < k; i++){
-                    BucketDataPoint c = H.poll();
-                    if(c == null) break;
-                    while (c.getIter() != candi.size()){
-                        if(!ids.contains(c.getId())){
-                            c.setIter(candi.size());
-                            H.offer(c);
-                        }
-                        c = H.poll();
-                        if(c == null) break;
-                    }
-                    if(c == null) break;
-                    candi.add(c.getData());
-                    int id = c.getId();
-                    for(int j = id; j > id - theta && j >= 0; j--){
-                        ids.add(j);
-                    }
-                }
-                sampleDataPoints.addAll(candi);
+                sampleDataPoints.add(maxi);
+                sampleDataPoints.add(mini);
+                sampleDataPoints.add(datapoints.get(datapoints.size()-1));
             }
 
 
             // sample complete, persist to iotdb
-            if(sampleDataPoints.size() == 0) {
-                try {
-                    Thread.sleep(interval);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                continue;
+            if(dataPoints.size() < patchLimit) {
+//                try {
+//                    Thread.sleep(interval);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+
+//                if(level == 0) {
+//                    try {
+//                        connection.close();
+//                    } catch (SQLException e) {
+//                        e.printStackTrace();
+//                    }
+//                    exit = true;
+//                }
+                System.out.println("catch up!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+
             }
 
             // 删除上次的最后一桶
             deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
             System.out.println(deletesql);
             pgtool.queryUpdate(connection, deletesql);
+
+            throughput += dataPoints.size();
+            usedtime = System.currentTimeMillis() - setuptime;
+            System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, throughput / usedtime * 1000));
 
             // 写入新一批样本
             Collections.sort(sampleDataPoints, sampleComparator);
@@ -554,11 +595,11 @@ public class PGSubscribeThread extends Thread {
             System.out.println(String.format("L%d data size: %s, sample size: %s, ratio: %s", level, dataPoints.size(), sampleDataPoints.size(), dataPoints.size() / sampleDataPoints.size()));
 
             // 生命在于留白
-            try {
-                Thread.sleep(interval);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+//            try {
+//                Thread.sleep(interval);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
         }
     }
 }

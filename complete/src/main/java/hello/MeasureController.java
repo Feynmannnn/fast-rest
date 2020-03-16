@@ -102,22 +102,22 @@ public class MeasureController {
 //        Double gradsampleRange = calculateRange(gradsampleData, label);
 //
 //
-        List<Map<String, Object>> bucketsampleData = new BucketSampleController().dataPoints(
-                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, 50, 4, "map", ip, port, Math.toIntExact(amount), dbtype, percent, alpha);
-        Double bucketsampleMean = calculateMean(bucketsampleData, label);
-        Double bucketsampleStd = calculateStd(bucketsampleData, label, bucketsampleMean);
-        Double bucketsampleRange = calculateRange(bucketsampleData, label);
-        System.out.println(bucketsampleData.size());
-
-        List<Map<String, Object>> levelsampleData = new PublishController().publish(
-                url, username, password, database, timeseries, columns, starttime, endtime, amount, dbtype);
-        System.out.println(levelsampleData.size());
-        Double levelsampleMean = calculateMean(levelsampleData, sampleLabel);
-        System.out.println(levelsampleMean);
-        Double levelsampleStd = calculateStd(levelsampleData, sampleLabel, levelsampleMean);
-        System.out.println(levelsampleStd);
-        Double levelsampleRange = calculateRange(levelsampleData, sampleLabel);
-        System.out.println(levelsampleRange);
+//        List<Map<String, Object>> bucketsampleData = new BucketSampleController().dataPoints(
+//                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, 50, 4, "map", ip, port, Math.toIntExact(amount), dbtype, percent, alpha, 99999L, 1.0);
+//        Double bucketsampleMean = calculateMean(bucketsampleData, label);
+//        Double bucketsampleStd = calculateStd(bucketsampleData, label, bucketsampleMean);
+//        Double bucketsampleRange = calculateRange(bucketsampleData, label);
+//        System.out.println(bucketsampleData.size());
+//
+//        List<Map<String, Object>> levelsampleData = new PublishController().publish(
+//                url, username, password, database, timeseries, columns, starttime, endtime, amount, dbtype);
+//        System.out.println(levelsampleData.size());
+//        Double levelsampleMean = calculateMean(levelsampleData, sampleLabel);
+//        System.out.println(levelsampleMean);
+//        Double levelsampleStd = calculateStd(levelsampleData, sampleLabel, levelsampleMean);
+//        System.out.println(levelsampleStd);
+//        Double levelsampleRange = calculateRange(levelsampleData, sampleLabel);
+//        System.out.println(levelsampleRange);
 //
 //        System.out.println("origin size:" + originalData.size());
 //        System.out.println("amount: " + amount);
@@ -125,34 +125,34 @@ public class MeasureController {
 ////        System.out.println(String.format("std: %s, %s, %s, %s", originalStd, m4sampleStd, gradsampleStd, bucketsampleStd));
 ////        System.out.println(String.format("range: %s, %s, %s, %s", originalRange, m4sampleRange, gradsampleRange, bucketsampleRange));
 //
-        Double max = null;
-        Double min = null;
-        for (Map<String, Object> map : originalData){
-            if(map.containsKey(label)){
-                Double v = (int)map.get(label) + 0.0;
-                max = max == null ? v : Math.max(max, v);
-                min = min == null ? v : Math.min(min, v);
-            }
-        }
+//        Double max = null;
+//        Double min = null;
+//        for (Map<String, Object> map : originalData){
+//            if(map.containsKey(label)){
+//                Double v = (int)map.get(label) + 0.0;
+//                max = max == null ? v : Math.max(max, v);
+//                min = min == null ? v : Math.min(min, v);
+//            }
+//        }
+//////
+//        double[] originalDistribution = calculateDistribution(originalData, label, max, min);
+////        double[] m4sampleDistribution = calculateDistribution(m4sampleData, label, max, min);
+////        double[] gradsampleDistribution = calculateDistribution(gradsampleData, label, max, min);
+//        double[] bucketsampleDistribution = calculateDistribution(bucketsampleData, label, max, min);
+//        double[] levelsampleDistribution = calculateDistribution(levelsampleData, sampleLabel, max, min);
 ////
-        double[] originalDistribution = calculateDistribution(originalData, label, max, min);
-//        double[] m4sampleDistribution = calculateDistribution(m4sampleData, label, max, min);
-//        double[] gradsampleDistribution = calculateDistribution(gradsampleData, label, max, min);
-        double[] bucketsampleDistribution = calculateDistribution(bucketsampleData, label, max, min);
-        double[] levelsampleDistribution = calculateDistribution(levelsampleData, sampleLabel, max, min);
+////        System.out.println("m4sampleDistributionError: " + calculateDistributionError(originalDistribution, m4sampleDistribution));
+////        System.out.println("gradsampleDistributionError: " +  + calculateDistributionError(originalDistribution, gradsampleDistribution));
+////        System.out.println("bucketsampleDistributionError: " +  + calculateDistributionError(originalDistribution, bucketsampleDistribution));
 //
-//        System.out.println("m4sampleDistributionError: " + calculateDistributionError(originalDistribution, m4sampleDistribution));
-//        System.out.println("gradsampleDistributionError: " +  + calculateDistributionError(originalDistribution, gradsampleDistribution));
-//        System.out.println("bucketsampleDistributionError: " +  + calculateDistributionError(originalDistribution, bucketsampleDistribution));
-
-        System.out.println(String.format("mean: %s, %s, %s", originalMean, bucketsampleMean, levelsampleMean));
-        System.out.println(String.format("std: %s, %s, %s", originalStd, bucketsampleStd, levelsampleStd));
-        System.out.println(String.format("range: %s, %s, %s", originalRange, bucketsampleRange, levelsampleRange));
-        System.out.println(String.format("distribution: 0, %s, %s, %s", calculateDistributionError(originalDistribution, bucketsampleDistribution), calculateDistributionError(originalDistribution, levelsampleDistribution), calculateDistributionError(bucketsampleDistribution, levelsampleDistribution)));
-
-        for(int i = 0; i < originalDistribution.length; i++){
-            System.out.println(originalDistribution[i] + ", " + bucketsampleDistribution[i] + ", " + levelsampleDistribution[i]);
-        }
+//        System.out.println(String.format("mean: %s, %s, %s", originalMean, bucketsampleMean, levelsampleMean));
+//        System.out.println(String.format("std: %s, %s, %s", originalStd, bucketsampleStd, levelsampleStd));
+//        System.out.println(String.format("range: %s, %s, %s", originalRange, bucketsampleRange, levelsampleRange));
+//        System.out.println(String.format("distribution: 0, %s, %s, %s", calculateDistributionError(originalDistribution, bucketsampleDistribution), calculateDistributionError(originalDistribution, levelsampleDistribution), calculateDistributionError(bucketsampleDistribution, levelsampleDistribution)));
+//
+//        for(int i = 0; i < originalDistribution.length; i++){
+//            System.out.println(originalDistribution[i] + ", " + bucketsampleDistribution[i] + ", " + levelsampleDistribution[i]);
+//        }
     }
 
     static double calculateMean(List<Map<String, Object>> data, String valueLabel){

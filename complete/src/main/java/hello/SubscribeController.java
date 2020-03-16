@@ -26,7 +26,8 @@ public class SubscribeController {
             @RequestParam(value="starttime") String starttime,
             @RequestParam(value="theta", defaultValue = "30") Integer theta,
             @RequestParam(value="k", defaultValue = "4") Integer k,
-            @RequestParam(value="ratio", defaultValue = "50") Integer ratio
+            @RequestParam(value="ratio", defaultValue = "20") Integer ratio,
+            @RequestParam(value="batchlimit", defaultValue = "100000") Long batchlimit
     ) throws SQLException, NoSuchAlgorithmException {
 
         url = url.replace("\"", "");
@@ -48,7 +49,7 @@ public class SubscribeController {
 //        SubscribeThread subscribeThread = new SubscribeThread(url, username, password, database, timeseries, columns, starttime, theta, k, subId, 0, "iotdb");
 //        subscribeThread.start();
 //        List<Column> columnType = new ColumnController().columns(url, username, password, database, timeseries, null, null, "iotdb");
-        String TYPE = "integer";
+        String TYPE = "DOUBLE";
 //        for(Column column : columnType){
 //            if(column.column.equals(columns)) TYPE = column.type;
 //        }
@@ -62,7 +63,7 @@ public class SubscribeController {
                 break;
             case "FLOAT":
             case "DOUBLE":
-                TYPE = "double";
+                TYPE = "DOUBLE PRECISION";
                 break;
             default:
                 TYPE = "text";
@@ -70,7 +71,7 @@ public class SubscribeController {
 
         System.out.println(TYPE);
 
-        KafkaSubscribeThread subscribeThread = new KafkaSubscribeThread(url, username, password, database, timeseries, columns, starttime, TYPE, theta, k, ratio, subId, 0, "iotdb");
+        PGSubscribeThread subscribeThread = new PGSubscribeThread(url, username, password, database, timeseries, columns, starttime, TYPE, theta, k, ratio, subId, 0, "iotdb", batchlimit);
         subscribeThread.start();
 
 //        // TODO: analyse column type

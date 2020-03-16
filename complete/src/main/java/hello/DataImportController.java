@@ -54,7 +54,7 @@ public class DataImportController {
         }
 
         // patch inserts
-        int round = 1000000;
+        int round = 100000;
         Random r = new Random();
 
         long timer = System.currentTimeMillis();
@@ -89,12 +89,12 @@ public class DataImportController {
 
     public static void main(String[] args) throws SQLException {
         DataImportController dataImportController = new DataImportController();
-        String url = "jdbc:iotdb://101.6.15.211:6667/";
+        String url = "jdbc:iotdb://192.168.10.172:6667/";
         String username = "root";
         String password = "root";
-        String database = "root.mxw";
-        String timeseires = "s2";
-        String column = "d3";
+        String database = "root.test";
+        String timeseires = "s0";
+        String column = "d0";
         String datatype = "INT32";
         String encoding = "PLAIN";
         Long startTime = null;

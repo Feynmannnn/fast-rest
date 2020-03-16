@@ -346,8 +346,8 @@ public class KafkaSubscribeThread extends Thread {
         String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, "value", salt);
         String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
         System.out.println(newSubId);
-        PGSubscribeThread pgsubscribeThread = new PGSubscribeThread(url, username, password, database, tableName, "value", starttime, TYPE, theta, k, ratio, newSubId, level+1, "pg");
-        pgsubscribeThread.start();
+//        PGSubscribeThread pgsubscribeThread = new PGSubscribeThread(url, username, password, database, tableName, "value", starttime, TYPE, theta, k, ratio, newSubId, level+1, "pg", patchLimit);
+//        pgsubscribeThread.start();
 
         // 生命在于留白
         try {

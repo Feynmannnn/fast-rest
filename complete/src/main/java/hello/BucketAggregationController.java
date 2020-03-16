@@ -1,17 +1,17 @@
 package hello;
 
-import java.util.*;
-
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.sql.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 @RestController
-public class AggregationController {
-
-    @RequestMapping("/aggregation")
+public class BucketAggregationController {
+    @RequestMapping("/bucketaggregation")
     public List<Map<String, Object>> dataPoints(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
             @RequestParam(value="username", defaultValue = "root") String username,
@@ -27,7 +27,9 @@ public class AggregationController {
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
-            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
+            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
+            @RequestParam(value="percent", defaultValue = "99996") Long percent,
+            @RequestParam(value="alpha", defaultValue = "2.3") Double alpha
     ) throws Exception {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
@@ -44,44 +46,14 @@ public class AggregationController {
         port = port == null ? null : port.replace("\"", "");
         query = query == null ? null : query.replace("\"", "");
 
-        List<Map<String, Object>> linkedDataPoints = new DataPointController().dataPoints(
-                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, dbtype);
-        if(linkedDataPoints.size() < 2) return null;
-
-        List<Map<String, Object>> dataPoints = new ArrayList<>(linkedDataPoints);
-
-        Long firstTimestamp = (Timestamp.valueOf(dataPoints.get(0).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
-        Long lastTimestamp = (Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
-        Long timestampRange = lastTimestamp - firstTimestamp;
-        Long timeinteval = timestampRange / amount;
-
-        String iotdbLabel = database + "." + timeseries + "." +columns;
-        String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
+        String iotdblabel = database + "." + timeseries + "." +columns;
+        String label = dbtype.equals("iotdb") ? iotdblabel : columns;
         String timelabel = "time";
 
-        for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
-        List<Bucket> buckets = new LinkedList<>();
-
-        int p = 0, q = 0;
-        int n = dataPoints.size();
-        lastTimestamp = firstTimestamp + timeinteval;
-        while (p < n){
-            Long dataTimestamp = (Timestamp.valueOf(dataPoints.get(p).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
-            if(dataTimestamp > lastTimestamp){
-                buckets.add(new Bucket(dataPoints.subList(q, p)));
-                q = p;
-                lastTimestamp += timeinteval;
-            }
-            p++;
-        }
-        buckets.add(new Bucket(dataPoints.subList(q, p)));
-
-        String iotdblabel = database + "." + timeseries + "." +columns;
-        label = dbtype.equals("iotdb") ? iotdblabel : columns;
-
+        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
         List<Map<String, Object>> res = new LinkedList<>();
         long st = System.currentTimeMillis();
-        System.out.println("aggregation started");
+        System.out.println("bucketaggregation started");
 
         for(Bucket bucket : buckets){
             List<Map<String, Object>> datapoints = bucket.getDataPoints();
@@ -102,7 +74,7 @@ public class AggregationController {
             obj.put(label, valueSum / datapoints.size());
             res.add(obj);
         }
-        System.out.println("aggregation used time: " + (System.currentTimeMillis() - st) + "ms");
+        System.out.println("bucketaggregation used time: " + (System.currentTimeMillis() - st) + "ms");
         if(format.equals("map")) return res;
 
         timelabel = "time";
@@ -121,5 +93,6 @@ public class AggregationController {
             }
         }
         return result;
+
     }
 }

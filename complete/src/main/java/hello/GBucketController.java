@@ -1,21 +1,15 @@
 package hello;
 
-import java.util.*;
-
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.sql.*;
-import java.util.Date;
-
-import javax.script.*;
+import java.sql.Timestamp;
+import java.util.*;
 
 @RestController
-public class BucketController {
-
-    @RequestMapping("/buckets")
+public class GBucketController {
+    @RequestMapping("/gbuckets")
     public List<Bucket> buckets(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
             @RequestParam(value="username", defaultValue = "root") String username,
@@ -73,91 +67,17 @@ public class BucketController {
         List<Double> valuePresum = new ArrayList<>();
         List<Bucket> res = new LinkedList<>();
 
-
-//        String funcName = "f";
-//        String functor = "function f(dataPoints, valueLabel){\n" +
-//                "\t// 初始化\n" +
-//                "\tvar timeWeights=[];\n" +
-//                "\tvar valueWeights = [];\n" +
-//                "\tvar weights = [];\n" +
-//                "\tvar presum = [];\n" +
-//                "\tvar maxTimeWeight = 0;\n" +
-//                "\n" +
-//                "\t// 计算时间权重\n" +
-//                "\tvar lastTimestamp = new Date(dataPoints[0]['time']).getTime();\n" +
-//                "\tfor (var i = 0; i < dataPoints.length; i++) {\n" +
-//                "\t\tvar ts = new Date(dataPoints[i]['time']).getTime();\n" +
-//                "\t\tvar weight = Math.abs(ts - lastTimestamp);\n" +
-//                "\t\ttimeWeights.push(weight);\n" +
-//                "\t\tlastTimestamp = ts;\n" +
-//                "\t\tmaxTimeWeight = Math.max(weight, maxTimeWeight);\n" +
-//                "\t}\n" +
-//                "\tfor (var i = 0; i < timeWeights.length; i++) {\n" +
-//                "\t\ttimeWeights[i] = timeWeights[i] * 100 / maxTimeWeight;\n" +
-//                "\t}\n" +
-//                "\n" +
-//                "\t// 计算数值权重\n" +
-//                "\tvar valueSum = 0.0;\n" +
-//                "\tfor (var i = 0; i < dataPoints.length; i++) {\n" +
-//                "\t\tvalueSum += dataPoints[i][valueLabel];\n" +
-//                "\t\tpresum.push(valueSum);\n" +
-//                "\t}\n" +
-//                "\tvar maxValueWeight = 0.0;\n" +
-//                "\tfor(var i = 0; i < presum.length; i++){\n" +
-//                "\t\tvar divident = i > 50 ? presum[i] - presum[i-50] : presum[i];\n" +
-//                "\t\tvar dividor = i > 50 ? 50 : i+1.0;\n" +
-//                "\t\tvar avgsum = divident / dividor;\n" +
-//                "\t\tvar valueWeight = Math.abs(dataPoints[i][valueLabel] - avgsum);\n" +
-//                "\t\tvalueWeights.push(valueWeight);\n" +
-//                "\t\tmaxValueWeight = Math.max(maxValueWeight, valueWeight);\n" +
-//                "\t}\n" +
-//                "\n" +
-//                "\t// 合并权重\n" +
-//                "\tfor (var i = 0; i < valueWeights.length; i++) {\n" +
-//                "\t\tvalueWeights[i] = valueWeights[i] * 100 / maxValueWeight;\n" +
-//                "\t\tdataPoints[i][\"type\"] = valueWeights[i] > 90 ? 2 : timeWeights[i] > 10 ? 1 : 0;\n" +
-//                "\t\tdataPoints[i][\"weight\"] = valueWeights[i] + timeWeights[i];\n" +
-//                "\t\tdataPoints[i][\"valueWeight\"] = valueWeights[i];\n" +
-//                "\t\tdataPoints[i][\"timeweight\"] = timeWeights[i];\n" +
-//                "\t\tweights.push(valueWeights[i] + timeWeights[i]);\n" +
-//                "\t}\n" +
-//                "\treturn weights;\n" +
-//                "}";
-//
-//
-//        ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
-//        try{
-//            CompiledScript compiled = ((Compilable)engine).compile(functor);
-//            compiled.eval();
-//            if (engine instanceof Invocable) {
-//                Invocable in = (Invocable) compiled.getEngine();
-//                System.out.println("eval used " + (System.currentTimeMillis() - time) + "ms");
-//                ScriptObjectMirror r = (ScriptObjectMirror)in.invokeFunction(funcName, dataPoints, label);
-//                for(int i = 0; i < dataPoints.size(); i++){
-//                    weights.add((Double)r.get(i + ""));
-//                }
-//                System.out.println("trans used " + (System.currentTimeMillis() - time) + "ms");
-//            }
-//        }catch(Exception e){
-//            e.printStackTrace();
-//        }
-
-//        long maxTimeWeight = 0;
+        double maxTimeWeight = 0;
         long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
         long latestTimestamp = (Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
         long firstTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
-        long timeRange = latestTimestamp - firstTimestamp;
         for(Map<String, Object> point : dataPoints){
             Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
             Double weight = Math.abs(t.getTime() - lastTimestamp) + 0.0;
             timeWeights.add(weight);
             timeWeightsStat.add(weight);
             lastTimestamp = t.getTime();
-//            maxTimeWeight = Math.max(maxTimeWeight, weight);
-
-//            double factor = 0.3 + 0.7 * ((double)lastTimestamp - (double)(firstTimestamp))/ (double)(timeRange);
-//            double factor = 1;
-//            weightFactors.add(factor);
+            maxTimeWeight = Math.max(maxTimeWeight, weight);
         }
 
         Double[] timeWeightsArray = timeWeightsStat.toArray(new Double[0]);
@@ -166,38 +86,27 @@ public class BucketController {
         Double timeWeightLimit = timeWeightsArray[(int)(timeWeightsArray.length * percent / 100000)];
         System.out.println("timeWeightLimit:" + timeWeightLimit);
 
-        timeWeights.set(0, timeWeights.get(0) * 100 / (timeWeightLimit + 1));
+//        timeWeights.set(0, timeWeights.get(0) * 100 / (timeWeightLimit + 1));
         for(int i = 1; i < timeWeights.size(); i++){
-            timeWeights.set(i, Math.min(100, timeWeights.get(i) * 100 / (timeWeightLimit + 1)));
-            timeWeights.set(i-1, Math.max(timeWeights.get(i), timeWeights.get(i-1)));
+//            timeWeights.set(i, Math.min(100, timeWeights.get(i) * 100 / (timeWeightLimit + 1)));
+//            timeWeights.set(i-1, Math.max(timeWeights.get(i), timeWeights.get(i-1)));
+            if(timeWeights.get(i) >= timeWeightLimit){
+                timeWeights.set(i-1, -1.0);
+                timeWeights.set(i, -1.0);
+            }
+            dataPoints.get(i).put("timeWeights", timeWeights.get(i));
+            dataPoints.get(i-1).put("timeWeights", timeWeights.get(i-1));
         }
 
-//        Double valueSum = 0.0;
-//        for(Map<String, Object> point : dataPoints){
-//            Double weight;
-//            Object value = point.get(label);
-//            if(value instanceof Double) weight = Math.abs((Double) value);
-//            else if(value instanceof Long) weight = Math.abs(((Long) value).doubleValue());
-//            else if(value instanceof Integer) weight = Math.abs(((Integer) value).doubleValue());
-//            else if(value instanceof Boolean) throw new Exception("not support sample boolean value");
-//            else if(value instanceof String) throw new Exception("not support sample string value");
-//            else weight = Math.abs((Double) value);
-//            valueSum += weight;
-//            valuePresum.add(valueSum);
-//        }
         double maxValueWeight = 0.0;
-//        long fidelity = 5L;
         Object lastValue = dataPoints.get(0).get(label);
         for(int i = 0; i < dataPoints.size(); i++){
-//            Double divident = i > fidelity ? valuePresum.get(i) - valuePresum.get((int) (i-fidelity)) : valuePresum.get(i);
-//            Double dividor = i > fidelity ? fidelity : i+1.0;
             Object value = dataPoints.get(i).get(label);
             double v;
             if(value instanceof Double) v = Math.abs((Double) value - (Double) lastValue);
             else if(value instanceof Long) v = Math.abs(((Long) value).doubleValue() - ((Long) lastValue).doubleValue());
             else if(value instanceof Integer) v = Math.abs(((Integer) value).doubleValue() - ((Integer) lastValue).doubleValue());
             else v = Math.abs((Double) value - (Double) lastValue);
-//            double valueWeight = Math.abs(v - (divident/dividor));
             double valueWeight = Math.abs(v);
             valueWeights.add(valueWeight);
             valueWeightsStat.add(valueWeight);
@@ -205,29 +114,42 @@ public class BucketController {
             lastValue = value;
         }
 
-        valueWeights.set(0, valueWeights.get(0) * 100 / (maxValueWeight + 1));
+        Double[] valueWeightsArray = valueWeightsStat.toArray(new Double[0]);
+        Arrays.sort(valueWeightsArray);
+        System.out.println("alpha" + alpha);
+
+        Double valueWeightLimit = valueWeightsArray[(int)(valueWeightsArray.length * alpha)];
+        System.out.println("valueWeightLimit:" + valueWeightLimit);
+
+//        valueWeights.set(0, valueWeights.get(0) * 100 / (maxValueWeight + 1));
         for(int i = 1; i < valueWeights.size(); i++){
-            valueWeights.set(i, (valueWeights.get(i) * 100 / maxValueWeight));
-            valueWeights.set(i-1, Math.max(valueWeights.get(i), valueWeights.get(i-1)));
+//            valueWeights.set(i, (valueWeights.get(i) * 100 / maxValueWeight));
+//            valueWeights.set(i-1, Math.max(valueWeights.get(i), valueWeights.get(i-1)));
 //            dataPoints.get(i).put("Type", valueWeights.get(i) > 90 ? 2L : timeWeights.get(i) > 10 ? 1L : 0L);
+            if(valueWeights.get(i) >= valueWeightLimit){
+                valueWeights.set(i-1, -1.0);
+                valueWeights.set(i, -1.0);
+            }
+            dataPoints.get(i).put("valueWeights", valueWeights.get(i));
+            dataPoints.get(i-1).put("valueWeights", valueWeights.get(i-1));
         }
 
-        System.out.println("alpha" + alpha);
-        System.out.println("alpha" + alpha);
 
-        weights.add(Math.sqrt(timeWeights.get(0) * valueWeights.get(0)));
+        weights.add(0.0);
         for(int i = 1; i < timeWeights.size(); i++){
-            weights.add(Math.max(timeWeights.get(i), valueWeights.get(i)) * alpha + Math.min(timeWeights.get(i), valueWeights.get(i)));
+//            weights.add(Math.max(timeWeights.get(i), valueWeights.get(i)) * alpha + Math.min(timeWeights.get(i), valueWeights.get(i)));
 //            double w = Math.abs(timeWeights.get(i) * valueWeights.get(i));
 //            weights.add(w);
 //            weights.set(i-1, Math.max(w, weights.get(i-1)));
+            if(timeWeights.get(i) <= 0 || valueWeights.get(i) < 0) weights.add(-1.0);
+            else {
+//                weights.add(Math.sqrt(timeWeights.get(i) * valueWeights.get(i)));
+                weights.add(Math.sqrt(valueWeights.get(i) / timeWeights.get(i)));
+                if(weights.get(i-1) >= 0) weights.set(i-1, Math.max(weights.get(i), weights.get(i-1)));
+            }
         }
 
-//        Double[] weightsArr = weights.toArray(new Double[0]);
-//        Arrays.sort(weightsArr);
-//        Double weightLimit = weightsArr[(int)(alpha * weightsArr.length)];
-//        System.out.println((int)(alpha * weightsArr.length));
-//
+
         for (int i = 0; i < weights.size(); i++){
 //            weights.set(i, Math.min(weightLimit, weights.get(i)));
             dataPoints.get(i).put("weight", weights.get(i));
@@ -237,16 +159,21 @@ public class BucketController {
 
         // 二分查找
         int n = amount == null ? 1000 : amount / 4;
-        long lo = 0, hi = 200 * weights.size();
+        long lo = 0, hi = weights.size() * timeWeightLimit.longValue() * valueWeightLimit.longValue();
         while (lo < hi){
             long mid = lo + (hi - lo >> 1);
             int count = 0;
             double sum = 0;
             for (double weight : weights) {
-                if (sum + weight > mid) {
+                if(weight < 0){
+                    if(sum > 0) count++;
+                    sum = 0;
+                }
+                else if (sum + weight > mid) {
                     sum = weight;
                     if (++count > n) break;
-                } else sum += weight;
+                }
+                else sum += weight;
             }
             count++;
             if(count >= n) lo = mid + 1;
@@ -257,8 +184,15 @@ public class BucketController {
         System.out.println("bucketSum" + bucketSum);
         double sum = 0;
         int lastIndex = 0;
+
         for(int i = 0; i < weights.size(); i++){
             double weight = weights.get(i);
+            if(weight < 0){
+                if(sum > 0) res.add(new Bucket(dataPoints.subList(lastIndex, i)));
+                res.add(new Bucket(dataPoints.subList(i, i+1)));
+                lastIndex = i;
+                sum = 0;
+            }
             if(sum + weight > bucketSum){
                 res.add(new Bucket(dataPoints.subList(lastIndex, i)));
                 lastIndex = i;
