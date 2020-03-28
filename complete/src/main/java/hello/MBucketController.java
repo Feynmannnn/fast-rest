@@ -75,21 +75,13 @@ public class MBucketController {
         List<Double> valuePresum = new ArrayList<>();
         List<Bucket> res = new LinkedList<>();
 
-        double maxTimeWeight = 0;
         long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
-        long latestTimestamp = (Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
-        long firstTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
-        long timeRange = latestTimestamp - firstTimestamp;
         for(Map<String, Object> point : dataPoints){
             Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
             Double weight = Math.abs(t.getTime() - lastTimestamp) + 0.0;
             timeWeights.add(weight);
             timeWeightsStat.add(weight);
             lastTimestamp = t.getTime();
-            maxTimeWeight = Math.max(maxTimeWeight, weight);
-//            double factor = 0.3 + 0.7 * ((double)lastTimestamp - (double)(firstTimestamp))/ (double)(timeRange);
-//            double factor = 1;
-//            weightFactors.add(factor);
         }
 
         Double[] timeWeightsArray = timeWeightsStat.toArray(new Double[0]);
@@ -98,10 +90,7 @@ public class MBucketController {
         Double timeWeightLimit = timeWeightsArray[(int)(timeWeightsArray.length * percent / 100000)];
         System.out.println("timeWeightLimit:" + timeWeightLimit);
 
-//        timeWeights.set(0, timeWeights.get(0) * 100 / (timeWeightLimit + 1));
         for(int i = 1; i < timeWeights.size(); i++){
-//            timeWeights.set(i, Math.min(100, timeWeights.get(i) * 100 / (timeWeightLimit + 1)));
-//            timeWeights.set(i-1, Math.max(timeWeights.get(i), timeWeights.get(i-1)));
             if(timeWeights.get(i) >= timeWeightLimit){
                 timeWeights.set(i-1, -1.0);
                 timeWeights.set(i, -1.0);
@@ -110,7 +99,6 @@ public class MBucketController {
             dataPoints.get(i-1).put("timeWeights", timeWeights.get(i-1));
         }
 
-        double maxValueWeight = 0.0;
         Object lastValue = dataPoints.get(0).get(label);
         for(int i = 0; i < dataPoints.size(); i++){
             Object value = dataPoints.get(i).get(label);
@@ -122,7 +110,6 @@ public class MBucketController {
             double valueWeight = Math.abs(v);
             valueWeights.add(valueWeight);
             valueWeightsStat.add(valueWeight);
-            maxValueWeight = Math.max(maxValueWeight, valueWeight);
             lastValue = value;
         }
 
@@ -133,11 +120,7 @@ public class MBucketController {
         Double valueWeightLimit = valueWeightsArray[(int)(valueWeightsArray.length * alpha)];
         System.out.println("valueWeightLimit:" + valueWeightLimit);
 
-//        valueWeights.set(0, valueWeights.get(0) * 100 / (maxValueWeight + 1));
         for(int i = 1; i < valueWeights.size(); i++){
-//            valueWeights.set(i, (valueWeights.get(i) * 100 / maxValueWeight));
-//            valueWeights.set(i-1, Math.max(valueWeights.get(i), valueWeights.get(i-1)));
-//            dataPoints.get(i).put("Type", valueWeights.get(i) > 90 ? 2L : timeWeights.get(i) > 10 ? 1L : 0L);
             if(valueWeights.get(i) >= valueWeightLimit){
                 valueWeights.set(i-1, -1.0);
                 valueWeights.set(i, -1.0);
@@ -149,10 +132,6 @@ public class MBucketController {
 
         weights.add(0.0);
         for(int i = 1; i < timeWeights.size(); i++){
-//            weights.add(Math.max(timeWeights.get(i), valueWeights.get(i)) * alpha + Math.min(timeWeights.get(i), valueWeights.get(i)));
-//            double w = Math.abs(timeWeights.get(i) * valueWeights.get(i));
-//            weights.add(w);
-//            weights.set(i-1, Math.max(w, weights.get(i-1)));
             if(timeWeights.get(i) < 0 || valueWeights.get(i) < 0) weights.add(-1.0);
             else {
                 weights.add(Math.sqrt(timeWeights.get(i) * valueWeights.get(i)));
@@ -162,7 +141,6 @@ public class MBucketController {
 
 
         for (int i = 0; i < weights.size(); i++){
-//            weights.set(i, Math.min(weightLimit, weights.get(i)));
             dataPoints.get(i).put("weight", weights.get(i));
         }
 

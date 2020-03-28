@@ -35,8 +35,8 @@ public class BucketSampleController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
-            @RequestParam(value="percent", defaultValue = "99996") Long percent,
-            @RequestParam(value="alpha", defaultValue = "2.3") Double alpha
+            @RequestParam(value="percent", defaultValue = "1") Double percent,
+            @RequestParam(value="alpha", defaultValue = "1") Double alpha
     ) throws Exception {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
@@ -57,7 +57,8 @@ public class BucketSampleController {
         String label = dbtype.equals("iotdb") ? iotdblabel : columns;
         String timelabel = "time";
 
-        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
+//        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
+        List<Bucket> buckets = new GBucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
         List<Map<String, Object>> res = new LinkedList<>();
         long st = System.currentTimeMillis();
         System.out.println("bucketsample started");

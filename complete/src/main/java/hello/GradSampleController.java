@@ -37,7 +37,7 @@ public class GradSampleController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
-            @RequestParam(value="percent", defaultValue = "99995") Long percent,
+            @RequestParam(value="percent", defaultValue = "1") Double percent,
             @RequestParam(value="alpha", defaultValue = "1") Double alpha
     ) throws Exception {
 
@@ -59,7 +59,8 @@ public class GradSampleController {
         String iotdblabel = database + "." + timeseries + "." +columns;
         String label = dbtype.equals("iotdb") ? iotdblabel : columns;
 
-        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query,"map", ip, port, amount, dbtype, percent, alpha);
+//        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query,"map", ip, port, amount, dbtype, percent, alpha);
+        List<Bucket> buckets = new GBucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query,"map", ip, port, amount, dbtype, percent, alpha);
         List<Map<String, Object>> res = new LinkedList<Map<String, Object>>();
         long st = System.currentTimeMillis();
         System.out.println("gradsample started");
