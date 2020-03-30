@@ -1,5 +1,4 @@
 package hello;
-
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -8,9 +7,9 @@ import java.sql.Timestamp;
 import java.util.*;
 
 @RestController
-public class GBucketController {
-    @RequestMapping("/gbuckets")
-    public List<Bucket> buckets(
+public class WeightController {
+    @RequestMapping("/weights")
+    public List<Map<String, Object>> buckets(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
             @RequestParam(value="username", defaultValue = "root") String username,
             @RequestParam(value="password", defaultValue = "root") String password,
@@ -120,59 +119,6 @@ public class GBucketController {
         System.out.println(dataPoints.size());
         System.out.println(weights.size());
 
-        // 二分查找
-        int n = amount == null ? 1000 : amount / 4;
-        long lo = 0, hi = weights.size() * maxWeight.longValue();
-        while (lo < hi){
-            long mid = lo + (hi - lo >> 1);
-            int count = 0;
-            double sum = 0;
-            for (double weight : weights) {
-                if(weight < 0){
-                    if(sum > 0) count++;
-                    sum = 0;
-                }
-                else if (sum + weight > mid) {
-                    sum = weight;
-                    if (++count > n) break;
-                }
-                else sum += weight;
-            }
-            count++;
-            if(count >= n) lo = mid + 1;
-            else hi = mid;
-        }
-        System.out.println("divided used " + (System.currentTimeMillis() - time) + "ms");
-        long bucketSum = lo;
-        System.out.println("bucketSum" + bucketSum);
-        double sum = 0;
-        int lastIndex = 0;
-
-        for(int i = 0; i < weights.size(); i++){
-            double weight = weights.get(i);
-            if(weight < 0){
-                if(sum > 0) {
-                    res.add(new Bucket(dataPoints.subList(lastIndex, i)));
-                    res.add(new Bucket(dataPoints.subList(i, i+1)));
-                    lastIndex = i+1;
-                    sum = 0;
-                }
-                else{
-                    res.add(new Bucket(dataPoints.subList(i, i+1)));
-                    lastIndex = i+1;
-                    sum = 0;
-                }
-            }
-            if(sum + weight > bucketSum){
-                res.add(new Bucket(dataPoints.subList(lastIndex, i)));
-                lastIndex = i;
-                sum = weight;
-            }
-            else sum += weight;
-        }
-        res.add(new Bucket(dataPoints.subList(lastIndex, dataPoints.size())));
-        System.out.println("buckets used " + (System.currentTimeMillis() - time) + "ms");
-        System.out.println(res.size());
-        return res;
+        return dataPoints;
     }
 }
