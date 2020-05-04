@@ -57,7 +57,32 @@ public class M4SampleController {
 
 //        List<Bucket> buckets = new BucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
         List<Bucket> buckets = new GBucketController().buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
+        List<Map<String, Object>> res = m4sampling(buckets, label);
+
+        if(format.equals("map")) return res;
+
+        String timelabel = "time";
+
+        List<Map<String, Object>> result = new LinkedList<>();
+        for(Map<String, Object> map : res){
+            Object time = map.get(timelabel);
+            for(Map.Entry<String, Object> entry : map.entrySet()){
+                String mapKey = entry.getKey();
+                if(mapKey.equals(timelabel)) continue;
+                Map<String, Object> m = new HashMap<>();
+                m.put("time", time);
+                m.put("label", mapKey);
+                m.put("value", entry.getValue());
+                result.add(m);
+            }
+        }
+        return result;
+    }
+
+    public static List<Map<String, Object>> m4sampling(List<Bucket> buckets, String label){
+
         List<Map<String, Object>> res = new LinkedList<>();
+
         long st = System.currentTimeMillis();
         System.out.println("m4sample started");
 
@@ -90,24 +115,8 @@ public class M4SampleController {
             res.add(datapoints.get(datapoints.size()-1));
         }
         System.out.println("m4sample used time: " + (System.currentTimeMillis() - st) + "ms");
-        if(format.equals("map")) return res;
 
-        String timelabel = "time";
-
-        List<Map<String, Object>> result = new LinkedList<>();
-        for(Map<String, Object> map : res){
-            Object time = map.get(timelabel);
-            for(Map.Entry<String, Object> entry : map.entrySet()){
-                String mapKey = entry.getKey();
-                if(mapKey.equals(timelabel)) continue;
-                Map<String, Object> m = new HashMap<>();
-                m.put("time", time);
-                m.put("label", mapKey);
-                m.put("value", entry.getValue());
-                result.add(m);
-            }
-        }
-        return result;
+        return res;
     }
 
 }
