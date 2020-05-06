@@ -78,7 +78,7 @@ public class ErrorController {
         return error / area;
     }
 
-    static void lineError(List<Map<String, Object>> data, List<Map<String, Object>> sample, String label){
+    public static void lineError(List<Map<String, Object>> data, List<Map<String, Object>> sample, String label){
 
         if(sample.size() < 1) return;
         sample.get(0).put("error", 0.0);

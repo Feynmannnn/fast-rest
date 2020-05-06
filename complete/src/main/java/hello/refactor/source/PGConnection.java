@@ -1,4 +1,4 @@
-package hello;
+package hello.refactor.source;
 
 import java.sql.*;
 

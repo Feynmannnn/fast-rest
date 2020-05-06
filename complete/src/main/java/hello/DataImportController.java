@@ -1,13 +1,12 @@
 package hello;
 
+import hello.refactor.DataController;
 import org.apache.iotdb.jdbc.IoTDBSQLException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Random;
+import java.util.*;
 
 public class DataImportController {
 
@@ -53,6 +52,25 @@ public class DataImportController {
             System.out.println(e.getMessage());
         }
 
+        List<Map<String, Object>> rawdata = new DataPointController().dataPoints(
+                "jdbc:iotdb://101.6.15.201:6667/",
+                "root",
+                "root",
+                "root.group_9",
+                "1701",
+                "ZT31",
+                "2019-08-15 00:00:00",
+                "2019-08-30 00:00:00",
+                " and ZT31 > 0 ",
+                null,
+                "map",
+                null,
+                null,
+                "iotdb"
+        );
+
+
+
         // patch inserts
         int round = 100000;
         Random r = new Random();
@@ -70,12 +88,6 @@ public class DataImportController {
             statement.executeBatch();
             statement.clearBatch();
 
-            // wait for next round
-//            try {
-//                Thread.sleep(interval);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
 
             round--;
             if(round % 1000 == 0){
@@ -95,7 +107,7 @@ public class DataImportController {
         String database = "root.test";
         String timeseires = "s0";
         String column = "d0";
-        String datatype = "INT32";
+        String datatype = "DOUBLE";
         String encoding = "PLAIN";
         Long startTime = null;
         Long interval = 300L;
