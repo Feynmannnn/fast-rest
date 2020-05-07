@@ -26,6 +26,9 @@ public class LayerController {
             @RequestParam(value="percent", defaultValue = "1") Double percent,
             @RequestParam(value="alpha", defaultValue = "1") Double alpha,
             @RequestParam(value="ratio", defaultValue = "20") Integer ratio,
+            @RequestParam(value="ip", required = false) String ip,
+            @RequestParam(value="port", required = false) String port,
+            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="batchlimit", defaultValue = "100000") Long batchlimit
     ) throws SQLException, NoSuchAlgorithmException {
 
@@ -37,6 +40,22 @@ public class LayerController {
         columns = columns.replace("\"", "");
         starttime = starttime.replace("\"", "");
         sample = sample.replace("\"", "");
+        ip = ip.replace("\"", "");
+        port = port.replace("\"", "");
+        dbtype = dbtype.replace("\"", "");
+
+        if(dbtype.toLowerCase().equals("iotdb")) {
+            if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+        }
+        else if(dbtype.toLowerCase().equals("pg")) {
+            if (ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
+        }
+        else if(dbtype.toLowerCase().equals("influxdb")) {
+            if (ip != null && port != null) url = String.format("http://%s:%s/", ip, port);
+        }
+        else{
+            if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+        }
 
         System.out.println(url);
         System.out.println(database);

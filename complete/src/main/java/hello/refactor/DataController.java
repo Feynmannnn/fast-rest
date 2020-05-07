@@ -30,7 +30,7 @@ public class DataController {
         }
     };
 
-    @RequestMapping("/rawdata")
+    @RequestMapping("/data")
     public List<Map<String, Object>> dataPoints(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
             @RequestParam(value="username", defaultValue = "root") String username,

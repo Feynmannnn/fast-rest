@@ -26,6 +26,9 @@ public class QueryController {
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="amount", required = false) Long amount,
+            @RequestParam(value="ip", required = false) String ip,
+            @RequestParam(value="port", required = false) String port,
+            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="format", defaultValue = "map") String format
     ) throws SQLException {
         url = url.replace("\"", "");
@@ -35,6 +38,22 @@ public class QueryController {
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
+        ip = ip.replace("\"", "");
+        port = port.replace("\"", "");
+        dbtype = dbtype.replace("\"", "");
+
+        if(dbtype.toLowerCase().equals("iotdb")) {
+            if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+        }
+        else if(dbtype.toLowerCase().equals("pg")) {
+            if (ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
+        }
+        else if(dbtype.toLowerCase().equals("influxdb")) {
+            if (ip != null && port != null) url = String.format("http://%s:%s/", ip, port);
+        }
+        else{
+            if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+        }
 
         Long t = System.currentTimeMillis();
 
@@ -93,6 +112,9 @@ public class QueryController {
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="percent", required = false) Double percent,
+            @RequestParam(value="ip", required = false) String ip,
+            @RequestParam(value="port", required = false) String port,
+            @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="format", defaultValue = "map") String format
     ) throws SQLException {
         url = url.replace("\"", "");
@@ -104,6 +126,22 @@ public class QueryController {
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
+        ip = ip.replace("\"", "");
+        port = port.replace("\"", "");
+        dbtype = dbtype.replace("\"", "");
+
+        if(dbtype.toLowerCase().equals("iotdb")) {
+            if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+        }
+        else if(dbtype.toLowerCase().equals("pg")) {
+            if (ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
+        }
+        else if(dbtype.toLowerCase().equals("influxdb")) {
+            if (ip != null && port != null) url = String.format("http://%s:%s/", ip, port);
+        }
+        else{
+            if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+        }
 
         Long t = System.currentTimeMillis();
 
