@@ -1,10 +1,14 @@
 package hello.refactor;
 
+import com.alibaba.fastjson.JSONObject;
 import hello.ErrorController;
 import hello.refactor.obj.Bucket;
 import hello.refactor.source.PGConnection;
 import org.springframework.util.DigestUtils;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
@@ -90,9 +94,26 @@ public class LayerThread extends Thread{
         // fetch [patchLimit] rows once
         Long patchLimit = batchlimit;
 
-        String innerUrl = "jdbc:postgresql://192.168.10.172:5432/";
-        String innerUserName = "postgres";
-        String innerPassword = "1111aaaa";
+        String config = "";
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("fast.config"));
+            String str = "";
+            StringBuilder sb = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                str=new String(str.getBytes(),"UTF-8");//解决中文乱码问题
+                sb.append(str);
+            }
+            config = sb.toString();
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        JSONObject jsonObject = JSONObject.parseObject(config);
+        String autovisURL = jsonObject.getString("autovisURL");
+        String innerUrl = jsonObject.getString("innerURL");
+        String innerUserName = jsonObject.getString("innerusername");
+        String innerPassword = jsonObject.getString("innerpassword");
 
         PGConnection pgtool = new PGConnection(
                 innerUrl,
