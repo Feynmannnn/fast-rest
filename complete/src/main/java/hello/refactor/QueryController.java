@@ -38,8 +38,8 @@ public class QueryController {
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
-        ip = ip.replace("\"", "");
-        port = port.replace("\"", "");
+        ip = ip == null ? null : ip.replace("\"", "");
+        port = port == null ? null : port.replace("\"", "");
         dbtype = dbtype.replace("\"", "");
 
         if(dbtype.toLowerCase().equals("iotdb")) {
@@ -126,8 +126,8 @@ public class QueryController {
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
-        ip = ip.replace("\"", "");
-        port = port.replace("\"", "");
+        ip = ip == null ? null : ip.replace("\"", "");
+        port = port == null ? null : port.replace("\"", "");
         dbtype = dbtype.replace("\"", "");
 
         if(dbtype.toLowerCase().equals("iotdb")) {

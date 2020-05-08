@@ -40,8 +40,8 @@ public class LayerController {
         columns = columns.replace("\"", "");
         starttime = starttime.replace("\"", "");
         sample = sample.replace("\"", "");
-        ip = ip.replace("\"", "");
-        port = port.replace("\"", "");
+        ip = ip == null ? null : ip.replace("\"", "");
+        port = port == null ? null : port.replace("\"", "");
         dbtype = dbtype.replace("\"", "");
 
         if(dbtype.toLowerCase().equals("iotdb")) {

@@ -407,11 +407,12 @@ public class LayerThread extends Thread{
 
         List<String> sqls = new LinkedList<>();
         for(Map<String, Object> map : sampleDataPoints) {
-            sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight"), map.get("error"), map.get("area"),map.get(label)));
+            sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight").toString(), map.get("error").toString(), map.get("area").toString(), map.get(label)));
         }
         StringBuilder sb = new StringBuilder();
         for(String sql : sqls) sb.append(sql);
         String bigSql = sb.toString();
+//        System.out.println(bigSql);
         pgtool.queryUpdate(connection, bigSql);
 
 
