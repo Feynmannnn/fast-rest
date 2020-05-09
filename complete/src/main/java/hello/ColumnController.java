@@ -70,7 +70,16 @@ public class ColumnController {
             return columns;
         }
         else if(dbtype.toLowerCase().equals("pg")){
-            return null;
+            if(ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
+            PGConnection pgtool = new PGConnection(url+database, username, password);
+            Connection myconn = pgtool.getConn();
+            String sql = String.format("SELECT column_name, data_type FROM information_schema.columns where table_name = '%s';", timeseries);
+            ResultSet rs = pgtool.query(myconn, sql);
+            while(rs.next()){
+                columns.add(new Column(rs.getString(1), rs.getString(2), null));
+            }
+            myconn.close();
+            return columns;
         }
         else if(dbtype.toLowerCase().equals("influxdb")){
             if(ip != null && port != null) url = String.format("http://%s:%s/", ip, port);

@@ -35,9 +35,9 @@ public class LayerController {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
-        database = database.replace("\"", "");
-        timeseries = timeseries.replace("\"", "");
-        columns = columns.replace("\"", "");
+        database = database.replace("\"", "").toLowerCase();
+        timeseries = timeseries.replace("\"", "").toLowerCase();
+        columns = columns.replace("\"", "").toLowerCase();
         starttime = starttime.replace("\"", "");
         sample = sample.replace("\"", "");
         ip = ip == null ? null : ip.replace("\"", "");

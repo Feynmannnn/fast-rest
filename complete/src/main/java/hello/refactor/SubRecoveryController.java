@@ -95,6 +95,7 @@ public class SubRecoveryController implements ApplicationRunner {
 
         sb = new StringBuilder();
         JSONArray jsonArray = JSONArray.parseArray(sb.toString());
+        if(jsonArray == null) return;
         for(int i = 0; i < jsonArray.size(); i++){
             JSONObject param = jsonArray.getJSONObject(i);
             System.out.println(param);

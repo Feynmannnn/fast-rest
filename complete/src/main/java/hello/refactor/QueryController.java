@@ -32,9 +32,9 @@ public class QueryController {
             @RequestParam(value="format", defaultValue = "map") String format
     ) throws SQLException {
         url = url.replace("\"", "");
-        database = database.replace("\"", "");
-        timeseries = timeseries.replace("\"", "");
-        columns = columns.replace("\"", "");
+        database = database.replace("\"", "").toLowerCase();
+        timeseries = timeseries.replace("\"", "").toLowerCase();
+        columns = columns.replace("\"", "").toLowerCase();
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
@@ -120,9 +120,9 @@ public class QueryController {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
-        database = database.replace("\"", "");
-        timeseries = timeseries.replace("\"", "");
-        columns = columns.replace("\"", "");
+        database = database.replace("\"", "").toLowerCase();
+        timeseries = timeseries.replace("\"", "").toLowerCase();
+        columns = columns.replace("\"", "").toLowerCase();
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");

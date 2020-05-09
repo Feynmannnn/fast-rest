@@ -66,7 +66,7 @@ public class DataController {
         return _dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, dbtype);
     }
 
-    static List<Map<String, Object>> _dataPoints(
+    public static List<Map<String, Object>> _dataPoints(
             String url,
             String username,
             String password,
