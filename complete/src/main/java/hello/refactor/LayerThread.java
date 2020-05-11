@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class LayerThread extends Thread{
 
@@ -48,8 +51,10 @@ public class LayerThread extends Thread{
     final long setuptime;
     long throughput;
     long batchlimit;
+    Lock lock;
+    Condition lockCondition;
 
-    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double percent, Double alpha, Long batchlimit){
+    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double percent, Double alpha, Long batchlimit, Condition lockCondition){
         this.url = url;
         this.username = username;
         this.password = password;
@@ -71,12 +76,17 @@ public class LayerThread extends Thread{
         this.setuptime = System.currentTimeMillis();
         this.throughput = 0L;
         this.batchlimit = batchlimit;
+        this.lockCondition = lockCondition;
     }
 
     @Override
     public void run() {
 
-        if(level > 2) return;
+        long kickOffThreshold = 10000L;
+        boolean hadKickOff = false;
+        Lock lock = new ReentrantLock();
+        Condition newCondition = lock.newCondition();
+
 
         // wait for the lower level to sample data
         try {
@@ -133,9 +143,9 @@ public class LayerThread extends Thread{
         pgtool.queryUpdate(connection, createDatabaseSql);
 
         pgtool = new PGConnection(
-                "jdbc:postgresql://192.168.10.172:5432/" + pgDatabase,
-                "postgres",
-                "1111aaaa"
+                innerUrl + pgDatabase.toLowerCase(),
+                innerUserName,
+                innerPassword
         );
         connection = pgtool.getConn();
         String extentionsql = "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;";
@@ -193,7 +203,7 @@ public class LayerThread extends Thread{
                     "map",
                     null,
                     null,
-                    level > 0 ? "pg" : "iotdb");
+                    level > 0 ? "pg" : dbtype);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -420,7 +430,7 @@ public class LayerThread extends Thread{
         System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, throughput / usedtime * 1000));
 
         // sample complete, persist to iotdb
-        String batchInsertFormat = "insert into %s (time, weight, error, area, %s) values ('%s', %s, %s, %s, %s);";
+        String batchInsertFormat = "insert into %s (time, weight, error, area, %s) values ('%s+08', %s, %s, %s, %s);";
 
         Collections.sort(sampleDataPoints, sampleComparator);
 
@@ -428,7 +438,11 @@ public class LayerThread extends Thread{
 
         List<String> sqls = new LinkedList<>();
         for(Map<String, Object> map : sampleDataPoints) {
-            sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight").toString(), map.get("error").toString(), map.get("area").toString(), map.get(label)));
+            String sql = String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight").toString(), map.get("error").toString(), map.get("area").toString(), map.get(label));
+//            System.out.println(map.get("time"));
+//            System.out.println(map.get("time").toString().substring(0,19));
+//            System.out.println(sql);
+            sqls.add(sql);
         }
         StringBuilder sb = new StringBuilder();
         for(String sql : sqls) sb.append(sql);
@@ -441,12 +455,6 @@ public class LayerThread extends Thread{
         newcomingData = buckets.get(buckets.size()-1).getDataPoints();
         latestTime = newcomingData.get(0).get("time").toString().substring(0,19);
 
-        // kick off the next level sample
-        String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
-        String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
-        System.out.println(newSubId);
-        LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, TYPE, ratio, newSubId, level+1, sample, "pg", percent, alpha, batchlimit);
-        pgsubscribeThread.start();
 
         // 生命在于留白
 //        try {
@@ -457,6 +465,9 @@ public class LayerThread extends Thread{
 
         // keep sampling data
         while(!exit){
+
+            // wait for notify
+
 //            System.out.println(latestTime);
 
             try {
@@ -648,14 +659,6 @@ public class LayerThread extends Thread{
                 sampleDataPoints.add(datapoints.get(datapoints.size()-1));
             }
 
-
-            // sample complete, persist to iotdb
-            if(dataPoints.size() < patchLimit) {
-                exit = true;
-                System.out.println("Level" + level + " catch up!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-
-            }
-
             // 删除上次的最后一桶
             deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
             System.out.println(deletesql);
@@ -677,7 +680,42 @@ public class LayerThread extends Thread{
             sb = new StringBuilder();
             for(String sql : sqls) sb.append(sql);
             bigSql = sb.toString();
+//            System.out.println(bigSql);
             pgtool.queryUpdate(connection, bigSql);
+
+            if(throughput > kickOffThreshold){
+                if(hadKickOff){
+                    // notify the next level
+                    System.out.println("throughput" + throughput);
+                    System.out.println("signal the " + (level + 1) + "level to continue;");
+                    newCondition.signal();
+                }
+                else {
+                    hadKickOff = true;
+                    // kick off the next level sample
+                    String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
+                    String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
+                    System.out.println(newSubId);
+                    LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, TYPE, ratio, newSubId, level+1, sample, "pg", percent, alpha, batchlimit, newCondition);
+                    pgsubscribeThread.start();
+                }
+                throughput = 0;
+            }
+
+            // sample complete, persist to iotdb
+            if(dataPoints.size() < patchLimit) {
+//                exit = true;
+//                System.out.println("Level" + level + " catch up!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+                if(level > 0){
+                    try {
+                        System.out.println("lock the level" + level + " <<<<<<<<<<<<<!!!!!!!!");
+                        lockCondition.await();
+                        System.out.println("notify the level" + level + " <<<<<<<<<<<<<!!!!!!!!");
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
 
             if(exit) {
                 try {

@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.sql.*;
+import java.util.Date;
+
 import org.apache.iotdb.jdbc.IoTDBSQLException;
 
 @RestController
@@ -102,7 +104,7 @@ public class DataController {
                     " FROM " + database + "." + timeseries +
                     (starttime == null ? "" : " WHERE time >= " + starttime) +
                     (endtime   == null ? "" : " AND time < " + endtime) +
-                    (conditions    == null ? "" : conditions);
+                    (conditions == null ? "" : conditions);
             System.out.println(sql);
             ResultSet resultSet = statement.executeQuery(sql);
             System.out.println("exec used time: " + (System.currentTimeMillis() - stime) + "ms");
@@ -120,9 +122,18 @@ public class DataController {
                         else if(Types.BOOLEAN == type) map.put(label, resultSet.getString(i));
                         else if(Types.FLOAT == type) map.put(label, resultSet.getFloat(i));
                         else if(Types.DOUBLE == type) map.put(label, resultSet.getDouble(i));
-                        else if(Types.DATE == type) map.put(label, resultSet.getDate(i));
-                        else if(Types.TIME == type) map.put(label.toLowerCase(), resultSet.getTime(i));
-                        else if(Types.TIMESTAMP == type) map.put(label.toLowerCase(), resultSet.getTimestamp(i));
+                        else if(Types.DATE == type) {
+                            map.put(label.toLowerCase(), resultSet.getDate(i));
+                            map.put("timestamp", resultSet.getDate(i).getTime());
+                        }
+                        else if(Types.TIME == type) {
+                            map.put(label.toLowerCase(), resultSet.getTime(i));
+                            map.put("timestamp", resultSet.getTime(i).getTime());
+                        }
+                        else if(Types.TIMESTAMP == type) {
+                            map.put(label.toLowerCase(), resultSet.getTimestamp(i));
+                            map.put("timestamp", resultSet.getTimestamp(i).getTime());
+                        }
                         else map.put(label, resultSet.getString(i));
                     }
                     res.add(map);
@@ -146,7 +157,7 @@ public class DataController {
                     " FROM " + timeseries +
                     (starttime == null ? "" : " WHERE time >= '" + starttime + "'") +
                     (endtime   == null ? "" : " AND time < '" + endtime + "'") +
-                    (conditions    == null ? "" : " " + conditions);
+                    (conditions == null ? "" : " " + conditions);
             System.out.println(sql);
             ResultSet resultSet = pgtool.query(connection, sql);
 
@@ -168,9 +179,18 @@ public class DataController {
                         else if(Types.FLOAT == type) map.put(label, resultSet.getFloat(i));
                         else if(Types.DOUBLE == type) map.put(label, resultSet.getDouble(i));
                         else if(Types.NUMERIC == type) map.put(label, resultSet.getDouble(i));
-                        else if(Types.DATE == type) map.put(label, resultSet.getDate(i));
-                        else if(Types.TIME == type) map.put(label, resultSet.getTime(i));
-                        else if(Types.TIMESTAMP == type) map.put(label, resultSet.getTimestamp(i));
+                        else if(Types.DATE == type) {
+                            map.put(label.toLowerCase(), resultSet.getDate(i));
+                            map.put("timestamp", resultSet.getDate(i).getTime());
+                        }
+                        else if(Types.TIME == type) {
+                            map.put(label.toLowerCase(), resultSet.getTime(i));
+                            map.put("timestamp", resultSet.getTime(i).getTime());
+                        }
+                        else if(Types.TIMESTAMP == type) {
+                            map.put(label.toLowerCase(), resultSet.getTimestamp(i));
+                            map.put("timestamp", resultSet.getTimestamp(i).getTime());
+                        }
                         else map.put(label, resultSet.getString(i));
                     }
                     res.add(map);
@@ -188,7 +208,7 @@ public class DataController {
                     " FROM " + timeseries +
                     (starttime == null ? "" : " WHERE time >= " + starttime) +
                     (endtime   == null ? "" : " AND time < " + endtime) +
-                    (conditions    == null ? "" : conditions);
+                    (conditions == null ? "" : conditions);
             System.out.println(sql);
             QueryResult queryResult = influxDBConnection.query(sql);
 

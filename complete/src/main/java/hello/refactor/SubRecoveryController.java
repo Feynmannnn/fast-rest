@@ -15,9 +15,10 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.net.ConnectException;
 
 
-@Component
+//@Component
 public class SubRecoveryController implements ApplicationRunner {
 
     @Override
@@ -69,7 +70,13 @@ public class SubRecoveryController implements ApplicationRunner {
          * 如果只是发送GET方式请求，使用connet方法建立和远程资源之间的实际连接即可；
          * 如果发送POST方式的请求，需要获取URLConnection实例对应的输出流来发送请求参数。
          * */
-        conn.connect();
+        try {
+            conn.connect();
+        }
+        catch (ConnectException e){
+            System.out.println("sub recovery connection failed");
+            return;
+        }
 
         /**GET方法请求*****end*/
 
@@ -93,7 +100,6 @@ public class SubRecoveryController implements ApplicationRunner {
 
         String salt = "&%12345***&&%%$$#@1";
 
-        sb = new StringBuilder();
         JSONArray jsonArray = JSONArray.parseArray(sb.toString());
         if(jsonArray == null) return;
         for(int i = 0; i < jsonArray.size(); i++){
@@ -120,6 +126,7 @@ public class SubRecoveryController implements ApplicationRunner {
             System.out.println(database);
             System.out.println(timeseries);
             System.out.println(columns);
+            System.out.println(dbtype);
 
             // iotdb is . tsdb is _
             String L0tableName = "L0" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", path, database, timeseries, columns, salt).getBytes()).substring(0, 8);
@@ -135,7 +142,7 @@ public class SubRecoveryController implements ApplicationRunner {
             String newStartTime = starttime;
 
 
-            PGConnection pgtool = new PGConnection(innerUrl+database.replace(".", "_"), innerUserName, innerPassword);
+            PGConnection pgtool = new PGConnection(innerUrl+database.replace(".", "_").toLowerCase(), innerUserName, innerPassword);
             Connection connection = pgtool.getConn();
             if (connection == null) {
                 System.out.println("get connection defeat");
@@ -150,7 +157,13 @@ public class SubRecoveryController implements ApplicationRunner {
                 ResultSet resultSet = pgtool.query(connection, sql);
                 if (resultSet != null) {
                     if(resultSet.next()){
-                        newStartTime = resultSet.getString(1).substring(0,19);
+                        newStartTime = resultSet.getString(1);
+                        if(newStartTime != null){
+                            newStartTime = newStartTime.substring(0,19);
+                        }
+                        else {
+                            newStartTime = starttime;
+                        }
                         System.out.println(j);
                         break;
                     }

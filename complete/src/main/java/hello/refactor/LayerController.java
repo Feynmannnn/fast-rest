@@ -7,6 +7,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 @RestController
 public class LayerController {
@@ -35,9 +38,9 @@ public class LayerController {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
-        database = database.replace("\"", "").toLowerCase();
-        timeseries = timeseries.replace("\"", "").toLowerCase();
-        columns = columns.replace("\"", "").toLowerCase();
+        database = database.replace("\"", "");
+        timeseries = timeseries.replace("\"", "");
+        columns = columns.replace("\"", "");
         starttime = starttime.replace("\"", "");
         sample = sample.replace("\"", "");
         ip = ip == null ? null : ip.replace("\"", "");
@@ -61,6 +64,7 @@ public class LayerController {
         System.out.println(database);
         System.out.println(timeseries);
         System.out.println(columns);
+        System.out.println(dbtype);
 
         String subId = DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);
         System.out.println(subId);
@@ -84,7 +88,10 @@ public class LayerController {
 
         System.out.println(TYPE);
 
-        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, starttime, TYPE, ratio, subId, 0, sample,"iotdb", percent, alpha, batchlimit);
+        Lock lock = new ReentrantLock();
+        Condition newCondition = lock.newCondition();
+
+        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, starttime, TYPE, ratio, subId, 0, sample, dbtype, percent, alpha, batchlimit, newCondition);
         subscribeThread.start();
 
         return subId;

@@ -1,11 +1,17 @@
 package hello.refactor;
 
+import com.alibaba.fastjson.JSONObject;
 import hello.ErrorDataController;
+import hello.TimeSeries;
+import hello.TimeSeriesController;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -32,9 +38,9 @@ public class QueryController {
             @RequestParam(value="format", defaultValue = "map") String format
     ) throws SQLException {
         url = url.replace("\"", "");
-        database = database.replace("\"", "").toLowerCase();
-        timeseries = timeseries.replace("\"", "").toLowerCase();
-        columns = columns.replace("\"", "").toLowerCase();
+        database = database.replace("\"", "");
+        timeseries = timeseries.replace("\"", "");
+        columns = columns.replace("\"", "");
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
@@ -57,20 +63,30 @@ public class QueryController {
 
         Long t = System.currentTimeMillis();
 
-        String innerUrl = "jdbc:postgresql://192.168.10.172:5432/";
-        String innerUserName = "postgres";
-        String innerPassword = "1111aaaa";
+        String config = "";
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("fast.config"));
+            String str = "";
+            StringBuilder sb = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                str=new String(str.getBytes(),"UTF-8");//解决中文乱码问题
+                sb.append(str);
+            }
+            config = sb.toString();
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        JSONObject jsonObject = JSONObject.parseObject(config);
+        String autovisURL = jsonObject.getString("autovisURL");
+        String innerUrl = jsonObject.getString("innerURL");
+        String innerUserName = jsonObject.getString("innerusername");
+        String innerPassword = jsonObject.getString("innerpassword");
 
         // iotdb is . tsdb is _
-        String L0tableName = "L0" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0, 8);
-        ;
-        String L1tableName = "L1" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L0tableName, columns, salt).getBytes()).substring(0, 8);
-        String L2tableName = "L2" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L1tableName, columns, salt).getBytes()).substring(0, 8);
+        String[] tables = subTables(innerUrl, innerUserName, innerPassword, database.replace(".", "_"), timeseries, columns);
 
-        String[] tables = new String[3];
-        tables[0] = L2tableName;
-        tables[1] = L1tableName;
-        tables[2] = L0tableName;
 
         List<Map<String, Object>> res = null;
         for (String tableName : tables) {
@@ -120,9 +136,9 @@ public class QueryController {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
-        database = database.replace("\"", "").toLowerCase();
-        timeseries = timeseries.replace("\"", "").toLowerCase();
-        columns = columns.replace("\"", "").toLowerCase();
+        database = database.replace("\"", "");
+        timeseries = timeseries.replace("\"", "");
+        columns = columns.replace("\"", "");
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         format = format.replace("\"", "");
@@ -145,24 +161,34 @@ public class QueryController {
 
         Long t = System.currentTimeMillis();
 
-        String innerUrl = "jdbc:postgresql://192.168.10.172:5432/";
-        String innerUserName = "postgres";
-        String innerPassword = "1111aaaa";
+        String config = "";
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("fast.config"));
+            String str = "";
+            StringBuilder sb = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                str=new String(str.getBytes(),"UTF-8");//解决中文乱码问题
+                sb.append(str);
+            }
+            config = sb.toString();
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        JSONObject jsonObject = JSONObject.parseObject(config);
+        String autovisURL = jsonObject.getString("autovisURL");
+        String innerUrl = jsonObject.getString("innerURL");
+        String innerUserName = jsonObject.getString("innerusername");
+        String innerPassword = jsonObject.getString("innerpassword");
 
         // iotdb is . tsdb is _
-        String L0tableName = "L0" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
-        String L1tableName = "L1" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L0tableName, columns, salt).getBytes()).substring(0,8);
-        String L2tableName = "L2" + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, L1tableName, columns, salt).getBytes()).substring(0,8);
-
-        String[] tables = new String[3];
-        tables[0] = L2tableName;
-        tables[1] = L1tableName;
-        tables[2] = L0tableName;
+        String[] tables = subTables(innerUrl, innerUserName, innerPassword, database.replace(".", "_"), timeseries, columns);
 
         List<Map<String, Object>> res = null;
         for(String tableName : tables){
             System.out.println(tableName);
-            res = new ErrorDataController().dataPoints(
+            res = DataController._dataPoints(
                     innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns, starttime, endtime, null, null, "map", null, null, "pg");
             System.out.println(tableName);
 
@@ -178,6 +204,18 @@ public class QueryController {
         }
 
         System.out.println("publish used time:" + (System.currentTimeMillis() - t));
+        return res;
+    }
+
+    static String[] subTables(String url, String username, String password, String database, String timeseries, String columns) throws SQLException {
+        List<TimeSeries> timeSeries = new TimeSeriesController().timeSeries(url, username, password, database, null, null, "pg");
+        int n = timeSeries.size();
+        String[] res = new String[n];
+        for(int i = 0; i < n; i++){
+            String tableName = "L" + i + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
+            timeseries = tableName;
+            res[n-1-i] = tableName;
+        }
         return res;
     }
 }
