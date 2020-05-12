@@ -694,7 +694,7 @@ public class LayerThread extends Thread{
             System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, throughput / usedtime * 1000));
 
             // 写入新一批样本
-            Collections.sort(sampleDataPoints, sampleComparator);
+            sampleDataPoints.sort(sampleComparator);
 
             ErrorController.lineError(dataPoints, sampleDataPoints, label);
 
