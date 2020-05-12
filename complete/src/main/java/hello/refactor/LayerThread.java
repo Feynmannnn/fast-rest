@@ -65,7 +65,7 @@ public class LayerThread extends Thread{
         this.timeseries = timeseries;
         this.columns = columns;
         this.starttime = starttime;
-        this.starttime = endtime;
+        this.endtime = endtime;
         this.TYPE = TYPE;
         this.ratio = ratio;
         this.percent = percent;

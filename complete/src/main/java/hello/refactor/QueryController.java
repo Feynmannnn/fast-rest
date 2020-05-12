@@ -84,8 +84,7 @@ public class QueryController {
         String innerPassword = jsonObject.getString("innerpassword");
 
         // iotdb is . tsdb is _
-        String[] tables = subTables(innerUrl, innerUserName, innerPassword, database.replace(".", "_"), timeseries, columns);
-
+        String[] tables = subTables(url, innerUrl, innerUserName, innerPassword, database, timeseries, columns);
 
         List<Map<String, Object>> res = null;
         for (String tableName : tables) {
@@ -182,7 +181,7 @@ public class QueryController {
         String innerPassword = jsonObject.getString("innerpassword");
 
         // iotdb is . tsdb is _
-        String[] tables = subTables(innerUrl, innerUserName, innerPassword, database.replace(".", "_"), timeseries, columns);
+        String[] tables = subTables(url, innerUrl, innerUserName, innerPassword, database, timeseries, columns);
 
         List<Map<String, Object>> res = null;
         for(String tableName : tables){
@@ -206,17 +205,25 @@ public class QueryController {
         return res;
     }
 
-    static String[] subTables(String url, String username, String password, String database, String timeseries, String columns) throws SQLException {
-        List<TimeSeries> timeSeries = new TimeSeriesController().timeSeries(url, username, password, database.replace(".", "_"), null, null, "pg");
-        int n = timeSeries.size();
-        System.out.println(n);
-        String[] res = new String[n];
-        for(int i = 0; i < n; i++){
-            String tableName = "L" + i + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
-            timeseries = tableName;
-            res[n-1-i] = tableName;
+    static String[] subTables(String url, String innerurl, String username, String password, String database, String timeseries, String columns) throws SQLException {
+        try{
+            List<TimeSeries> timeSeries = new TimeSeriesController().timeSeries(innerurl, username, password, database.replace(".", "_"), null, null, "pg");
+            int n = timeSeries.size();
+            System.out.println(n);
+            String[] res = new String[n];
+            System.out.println(url);
+            System.out.println(database);
+            System.out.println(timeseries);
+            System.out.println(columns);
+            for(int i = 0; i < n; i++){
+                String tableName = "l" + i + "_m" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
+                timeseries = tableName;
+                res[n-1-i] = tableName;
+            }
+            return res;
+        } catch (Exception e){
+            System.out.println(e.getMessage());
+            return new String[0];
         }
-        System.out.println(n);
-        return res;
     }
 }

@@ -1,10 +1,14 @@
 package hello.refactor;
 
+import com.alibaba.fastjson.JSONObject;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.util.concurrent.locks.Condition;
@@ -43,6 +47,7 @@ public class LayerController {
         timeseries = timeseries.replace("\"", "");
         columns = columns.replace("\"", "");
         starttime = starttime.replace("\"", "");
+        endtime = endtime == null ? null : endtime.replace("\"", "");
         sample = sample.replace("\"", "");
         ip = ip == null ? null : ip.replace("\"", "");
         port = port == null ? null : port.replace("\"", "");
@@ -69,6 +74,38 @@ public class LayerController {
 
         String subId = DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);
         System.out.println(subId);
+
+        String config = "";
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("fast.config"));
+            String str = "";
+            StringBuilder sb = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                str=new String(str.getBytes(),"UTF-8");//解决中文乱码问题
+                sb.append(str);
+            }
+            config = sb.toString();
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        JSONObject jsonObject = JSONObject.parseObject(config);
+        String autovisURL = jsonObject.getString("autovisURL");
+        String innerUrl = jsonObject.getString("innerURL");
+        String innerUserName = jsonObject.getString("innerusername");
+        String innerPassword = jsonObject.getString("innerpassword");
+
+        String L0table = "l0_m" + subId;
+        System.out.println(L0table);
+
+        String[] tables = QueryController.subTables(url, innerUrl, innerUserName, innerPassword, database, timeseries, columns);
+
+        for(String table : tables){
+            if(L0table.equals(table)) {
+                return "subscribe already exists.";
+            }
+        }
 
         String TYPE = "DOUBLE";
 
