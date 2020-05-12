@@ -312,6 +312,14 @@ public class LayerThread extends Thread{
                     double AB = Math.sqrt(t1 * t1 + v1 * v1);
                     double BC = Math.sqrt(t2 * t2 + v2 * v2);
                     double w = (AB + BC);
+                    if(Double.isNaN(w)){
+                        System.out.println(t1);
+                        System.out.println(t2);
+                        System.out.println(v1);
+                        System.out.println(v2);
+                        System.out.println(AB);
+                        System.out.println(BC);
+                    }
                     maxWeight = Math.max(w, maxWeight);
                     weights.add(w);
                 }
@@ -593,13 +601,21 @@ public class LayerThread extends Thread{
                         weights.add(-1.0);
                     }
                     else{
-                        double t1 = timeWeights.get(i) / timestampRange * 5;
-                        double t2 = timeWeights.get(i+1) / timestampRange * 5;
-                        double v1 = valueWeights.get(i) / valueRange;
-                        double v2 = valueWeights.get(i+1) / valueRange;
+                        double t1 = timeWeights.get(i) / percent * 25;
+                        double t2 = timeWeights.get(i + 1) / percent * 25;
+                        double v1 = valueWeights.get(i) / alpha;
+                        double v2 = valueWeights.get(i + 1) / alpha;
                         double AB = Math.sqrt(t1 * t1 + v1 * v1);
                         double BC = Math.sqrt(t2 * t2 + v2 * v2);
                         double w = (AB + BC);
+                        if(Double.isNaN(w)){
+                            System.out.println(t1);
+                            System.out.println(t2);
+                            System.out.println(v1);
+                            System.out.println(v2);
+                            System.out.println(AB);
+                            System.out.println(BC);
+                        }
                         maxWeight = Math.max(w, maxWeight);
                         weights.add(w);
                     }
@@ -687,7 +703,10 @@ public class LayerThread extends Thread{
                 sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
             }
             sb = new StringBuilder();
-            for(String sql : sqls) sb.append(sql);
+            for(String sql : sqls) {
+                if(sql.toLowerCase().contains("nan")) System.out.println(sql);
+                else sb.append(sql);
+            }
             bigSql = sb.toString();
 //            System.out.println(bigSql);
             pgtool.queryUpdate(connection, bigSql);

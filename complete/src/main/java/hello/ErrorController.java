@@ -169,6 +169,9 @@ public class ErrorController {
 //            System.out.println("error" + error);
 //            System.out.println("area" + area);
 
+            if(Double.isNaN(error)) error = 0.0;
+            if(Double.isNaN(area)) area = 0.0;
+
             sample.get(i).put("error", error);
             sample.get(i).put("area", area);
         }
