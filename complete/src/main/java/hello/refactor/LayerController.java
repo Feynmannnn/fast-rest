@@ -24,7 +24,8 @@ public class LayerController {
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
             @RequestParam(value="columns") String columns,
-            @RequestParam(value="starttime") String starttime,
+            @RequestParam(value="starttime", defaultValue = "1971-01-01 00:00:00") String starttime,
+            @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="sample") String sample,
             @RequestParam(value="percent", defaultValue = "1") Double percent,
             @RequestParam(value="alpha", defaultValue = "1") Double alpha,
@@ -91,7 +92,7 @@ public class LayerController {
         Lock lock = new ReentrantLock();
         Condition newCondition = lock.newCondition();
 
-        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, starttime, TYPE, ratio, subId, 0, sample, dbtype, percent, alpha, batchlimit, newCondition);
+        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, starttime, endtime, TYPE, ratio, subId, 0, sample, dbtype, percent, alpha, batchlimit, lock, newCondition);
         subscribeThread.start();
 
         return subId;

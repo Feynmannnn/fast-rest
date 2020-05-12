@@ -1,9 +1,8 @@
 package hello.refactor;
 
 import com.alibaba.fastjson.JSONObject;
-import hello.ErrorDataController;
-import hello.TimeSeries;
-import hello.TimeSeriesController;
+import hello.refactor.meta.TimeSeries;
+import hello.refactor.meta.TimeSeriesController;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -189,7 +188,7 @@ public class QueryController {
         for(String tableName : tables){
             System.out.println(tableName);
             res = DataController._dataPoints(
-                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns, starttime, endtime, null, null, "map", null, null, "pg");
+                    innerUrl, innerUserName, innerPassword, database, tableName, columns, starttime, endtime, null, null, "map", null, null, "pg");
             System.out.println(tableName);
 
             double error= 0.0;
@@ -208,14 +207,16 @@ public class QueryController {
     }
 
     static String[] subTables(String url, String username, String password, String database, String timeseries, String columns) throws SQLException {
-        List<TimeSeries> timeSeries = new TimeSeriesController().timeSeries(url, username, password, database, null, null, "pg");
+        List<TimeSeries> timeSeries = new TimeSeriesController().timeSeries(url, username, password, database.replace(".", "_"), null, null, "pg");
         int n = timeSeries.size();
+        System.out.println(n);
         String[] res = new String[n];
         for(int i = 0; i < n; i++){
             String tableName = "L" + i + "_M" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
             timeseries = tableName;
             res[n-1-i] = tableName;
         }
+        System.out.println(n);
         return res;
     }
 }

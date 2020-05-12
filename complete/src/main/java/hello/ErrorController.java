@@ -173,5 +173,13 @@ public class ErrorController {
             sample.get(i).put("area", area);
         }
 
+        System.out.println("the time stamp comparasion:");
+        System.out.println("raw data time:" + data.get(0).get("time"));
+        System.out.println("raw data value:" + data.get(0).get(label));
+        System.out.println("sample data time:" + sample.get(0).get("time"));
+        System.out.println("sample data timestamp:" + sample.get(0).get("timestamp"));
+        System.out.println("sample data value:" + sample.get(0).get(label));
+        System.out.println("<<<<<<<<<<<<<<<<<<");
+
     }
 }

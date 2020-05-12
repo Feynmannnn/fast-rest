@@ -1,4 +1,4 @@
-package hello;
+package hello.refactor.meta;
 
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -10,7 +10,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.sql.*;
-import org.apache.iotdb.jdbc.IoTDBSQLException;
+
+import hello.refactor.source.IoTDBConnection;
+import hello.refactor.source.PGConnection;
+import hello.refactor.source.InfluxDBConnection;
 
 @RestController
 public class TimeSeriesController {
@@ -68,6 +71,7 @@ public class TimeSeriesController {
             PGConnection pgtool = new PGConnection(url+database, username, password);
             Connection myconn = pgtool.getConn();
             String sql = String.format("SELECT table_name FROM information_schema.tables WHERE table_catalog = '%s'and table_schema = 'public'", database);
+            System.out.println(sql);
             ResultSet rs = pgtool.query(myconn, sql);
             while(rs.next()){
                 timeSeries.add(new TimeSeries(rs.getString(1)));

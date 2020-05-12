@@ -18,13 +18,13 @@ import java.sql.SQLException;
 import java.net.ConnectException;
 
 
-//@Component
+@Component
 public class SubRecoveryController implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
         System.out.println("this is the SubRecoveryController");
-        this.subrecover();
+//        this.subrecover();
     }
 
     public void subrecover() throws IOException, SQLException, NoSuchAlgorithmException, InterruptedException {
@@ -112,6 +112,7 @@ public class SubRecoveryController implements ApplicationRunner {
             String username = param.get("username").toString();
             String password = param.get("password").toString();
             String starttime = param.get("starttime").toString();
+            String endtime = param.containsKey("endtime") ? param.get("endtime").toString() : null;
             String sample = param.get("sample").toString();
             Double percent = param.getDouble("percent");
             Double alpha = param.getDouble("alpha");
@@ -175,7 +176,7 @@ public class SubRecoveryController implements ApplicationRunner {
 
             connection.close();
 
-            new LayerController().subscribe(path, username, password, database, timeseries, columns, newStartTime, sample, percent, alpha, ratio, ip, port, dbtype, 100000L);
+            new LayerController().subscribe(path, username, password, database, timeseries, columns, newStartTime, endtime, sample, percent, alpha, ratio, ip, port, dbtype, 100000L);
 
         }
     }

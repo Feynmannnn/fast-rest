@@ -1,4 +1,4 @@
-package hello;
+package hello.refactor.meta;
 
 public class Column {
     String column;

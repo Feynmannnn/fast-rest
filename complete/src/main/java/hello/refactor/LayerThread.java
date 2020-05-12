@@ -36,6 +36,7 @@ public class LayerThread extends Thread{
     String timeseries;
     String columns;
     String starttime;
+    String endtime;
     String TYPE;
     Integer ratio;
     Long interval = 300L;
@@ -52,9 +53,11 @@ public class LayerThread extends Thread{
     long throughput;
     long batchlimit;
     Lock lock;
-    Condition lockCondition;
+    Lock newLock;
+    final Condition lockCondition;
+    final Condition newCondition;
 
-    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double percent, Double alpha, Long batchlimit, Condition lockCondition){
+    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double percent, Double alpha, Long batchlimit, Lock lock, Condition lockCondition){
         this.url = url;
         this.username = username;
         this.password = password;
@@ -62,6 +65,7 @@ public class LayerThread extends Thread{
         this.timeseries = timeseries;
         this.columns = columns;
         this.starttime = starttime;
+        this.starttime = endtime;
         this.TYPE = TYPE;
         this.ratio = ratio;
         this.percent = percent;
@@ -76,24 +80,29 @@ public class LayerThread extends Thread{
         this.setuptime = System.currentTimeMillis();
         this.throughput = 0L;
         this.batchlimit = batchlimit;
+        this.lock = lock;
         this.lockCondition = lockCondition;
+        this.newLock = new ReentrantLock();
+        this.newCondition = newLock.newCondition();
     }
 
     @Override
     public void run() {
 
-        long kickOffThreshold = 10000L;
+        batchlimit = 10000;
+
+        long kickOffThreshold = batchlimit * ratio;
         boolean hadKickOff = false;
-        Lock lock = new ReentrantLock();
-        Condition newCondition = lock.newCondition();
+
+
 
 
         // wait for the lower level to sample data
-        try {
-            Thread.sleep(interval);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            Thread.sleep(interval);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
 
         String pgDatabase = database.replace('.', '_');
         String tableName = "L" + level + "_M" + subId;
@@ -422,10 +431,10 @@ public class LayerThread extends Thread{
 
         // 删除上次的最后一桶
         String deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
-        System.out.println(deletesql);
-        pgtool.queryUpdate(connection, deletesql);
+//        System.out.println(deletesql);
+//        pgtool.queryUpdate(connection, deletesql);
 
-        throughput += dataPoints.size();
+//        throughput += dataPoints.size();
         long usedtime = System.currentTimeMillis() - setuptime;
         System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, throughput / usedtime * 1000));
 
@@ -448,12 +457,12 @@ public class LayerThread extends Thread{
         for(String sql : sqls) sb.append(sql);
         String bigSql = sb.toString();
 //        System.out.println(bigSql);
-        pgtool.queryUpdate(connection, bigSql);
+//        pgtool.queryUpdate(connection, bigSql);
 
 
         // process the newest bucket
-        newcomingData = buckets.get(buckets.size()-1).getDataPoints();
-        latestTime = newcomingData.get(0).get("time").toString().substring(0,19);
+//        newcomingData = buckets.get(buckets.size()-1).getDataPoints();
+//        latestTime = newcomingData.get(0).get("time").toString().substring(0,19);
 
 
         // 生命在于留白
@@ -489,8 +498,8 @@ public class LayerThread extends Thread{
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            dataPoints = new ArrayList<>(newcomingData);
-            dataPoints.addAll(linkedDataPoints);
+            dataPoints = new ArrayList<>(linkedDataPoints);
+//            dataPoints.addAll(linkedDataPoints);
 
             for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
 
@@ -685,35 +694,38 @@ public class LayerThread extends Thread{
 
             if(throughput > kickOffThreshold){
                 if(hadKickOff){
-                    // notify the next level
-                    System.out.println("throughput" + throughput);
+                    newLock.lock();
                     System.out.println("signal the " + (level + 1) + "level to continue;");
                     newCondition.signal();
+                    newLock.unlock();
                 }
                 else {
                     hadKickOff = true;
-                    // kick off the next level sample
                     String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
                     String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
+                    System.out.println("kick off the level " + (level +1) + "<<<<<<!!!!!!!");
                     System.out.println(newSubId);
-                    LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, TYPE, ratio, newSubId, level+1, sample, "pg", percent, alpha, batchlimit, newCondition);
+                    LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", percent, alpha, batchlimit, newLock, newCondition);
                     pgsubscribeThread.start();
                 }
                 throughput = 0;
             }
 
-            // sample complete, persist to iotdb
             if(dataPoints.size() < patchLimit) {
-//                exit = true;
-//                System.out.println("Level" + level + " catch up!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
                 if(level > 0){
                     try {
+                        lock.lock();
                         System.out.println("lock the level" + level + " <<<<<<<<<<<<<!!!!!!!!");
                         lockCondition.await();
-                        System.out.println("notify the level" + level + " <<<<<<<<<<<<<!!!!!!!!");
+                        System.out.println("signaled the level" + level + " <<<<<<<<<<<<<!!!!!!!!");
+                        lock.unlock();
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
+                }
+                else {
+                    exit = true;
+                    System.out.println("L0 catched up <<<<<<<<<<<<<<<!!!!!!!!!!!!!!");
                 }
             }
 
@@ -727,17 +739,22 @@ public class LayerThread extends Thread{
 
             // 单独处理最新桶
             newcomingData = buckets.get(buckets.size()-1).getDataPoints();
-            latestTime = newcomingData.get(0).get("time").toString().substring(0,19);
+            // 如果时间戳没有变化，或者追上截止日期则停止
+            if(latestTime.equals(newcomingData.get(0).get("time").toString().substring(0,19)) || (endtime != null && latestTime.compareTo(endtime) >= 0)){
+                exit = true;
+                System.out.println("L0 catched up <<<<<<<<<<<<<<<!!!!!!!!!!!!!!");
+            }
+            else latestTime = newcomingData.get(0).get("time").toString().substring(0,19);
 
             System.out.println("buckets.size():" + buckets.size());
             System.out.println(String.format("L%d data size: %s, sample size: %s, ratio: %s", level, dataPoints.size(), sampleDataPoints.size(), dataPoints.size() / sampleDataPoints.size()));
 
             // 生命在于留白
-//            try {
-//                Thread.sleep(interval);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

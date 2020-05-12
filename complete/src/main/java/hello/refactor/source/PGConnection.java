@@ -37,20 +37,16 @@ public class PGConnection {
         return rs;
     }
 
-    public boolean queryUpdate(Connection conn, String sql) {
+    public void queryUpdate(Connection conn, String sql) {
         PreparedStatement pStatement = null;
         int rs = 0;
         try {
             pStatement = conn.prepareStatement(sql);
-            rs = pStatement.executeUpdate();
+            pStatement.executeUpdate();
         } catch (SQLException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
-        if (rs > 0) {
-            return true;
-        }
-        return false;
     }
 
     public static void main(String[] args) throws SQLException {
