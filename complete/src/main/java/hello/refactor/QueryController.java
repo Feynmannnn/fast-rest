@@ -215,9 +215,11 @@ public class QueryController {
             System.out.println(database);
             System.out.println(timeseries);
             System.out.println(columns);
+            String tableName = timeseries;
             for(int i = 0; i < n; i++){
-                String tableName = "l" + i + "_m" + DigestUtils.md5DigestAsHex(String.format("%s,%s,%s,%s,%s", url, database, timeseries, columns, salt).getBytes()).substring(0,8);;
-                timeseries = tableName;
+                String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
+                String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
+                tableName = "L" + i + "_M" + newSubId;
                 res[n-1-i] = tableName;
             }
             return res;
