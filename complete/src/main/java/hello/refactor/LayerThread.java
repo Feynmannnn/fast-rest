@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import hello.ErrorController;
 import hello.refactor.obj.Bucket;
 import hello.refactor.source.PGConnection;
+import hello.refactor.util.OutlierDetection;
 import org.springframework.util.DigestUtils;
 
 import java.io.BufferedReader;
@@ -12,7 +13,6 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
-import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.Condition;
@@ -51,7 +51,6 @@ public class LayerThread extends Thread{
     String dbtype;
     Double percent;
     Double alpha;
-    long bucketSum;
     final long setuptime;
     long throughput;
     long batchlimit;
@@ -61,8 +60,9 @@ public class LayerThread extends Thread{
     final Condition newCondition;
     BlockingQueue<Map<String, Object>> dataQueue;
     BlockingQueue<Map<String, Object>> sampleQueue;
+    Long bucketSum;
 
-    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double percent, Double alpha, Long batchlimit, Lock lock, Condition lockCondition, BlockingQueue<Map<String, Object>> dataQueue){
+    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double percent, Double alpha, Long batchlimit, Lock lock, Condition lockCondition, BlockingQueue<Map<String, Object>> dataQueue, Long bucketSum){
         this.url = url;
         this.username = username;
         this.password = password;
@@ -91,26 +91,17 @@ public class LayerThread extends Thread{
         this.newCondition = newLock.newCondition();
         this.dataQueue = dataQueue;
         this.sampleQueue = new LinkedBlockingQueue<>();
+        this.bucketSum = bucketSum;
     }
 
     @Override
     public void run() {
 
-        batchlimit = 100000;
-        long kickOffSampling = 100L;
+        batchlimit = 10000;
+        long kickOffSampling = 1000L;
 
         long kickOffThreshold = kickOffSampling * ratio;
         boolean hadKickOff = false;
-
-
-
-
-        // wait for the lower level to sample data
-//        try {
-//            Thread.sleep(interval);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
 
         String pgDatabase = database.replace('.', '_');
         String tableName = "L" + level + "_M" + subId;
@@ -120,6 +111,8 @@ public class LayerThread extends Thread{
 
         // fetch [patchLimit] rows once
         Long patchLimit = batchlimit;
+
+        long sts = System.currentTimeMillis();
 
         String config = "";
         try {
@@ -194,13 +187,23 @@ public class LayerThread extends Thread{
 
         List<Map<String, Object>> linkedDataPoints = null;
         try {
-            linkedDataPoints = DataController._dataPoints(
-                    level > 0 ? innerUrl : url,
-                    level > 0 ? innerUserName : username,
-                    level > 0 ? innerPassword : password,
-                    level > 0 ? pgDatabase : database,
+            if(level > 0){
+                linkedDataPoints = new LinkedList<>();
+                long k = Math.min(dataQueue.size(), patchLimit);
+                System.out.println("k = " + k);
+                for(int i = 0; i < k; i++){
+                    linkedDataPoints.add(dataQueue.poll());
+                }
+            }
+            else {
+                // level = 0
+                linkedDataPoints = DataController._dataPoints(
+                    url,
+                    username,
+                    password,
+                    database,
                     timeseries,
-                    level > 0 ? columns + ", weight" : columns,
+                    columns,
                     latestTime,
                     null,
                     String.format(" limit %s", patchLimit),
@@ -208,7 +211,8 @@ public class LayerThread extends Thread{
                     "map",
                     null,
                     null,
-                    level > 0 ? "pg" : dbtype);
+                    dbtype);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -229,6 +233,12 @@ public class LayerThread extends Thread{
         Double valueSum = 0.0;
         double maxValueWeight = 0.0;
 
+        boolean percentIsNull = percent == null;
+        boolean alphaIsNull = alpha == null;
+        System.out.println("level " + level);
+        System.out.println(percentIsNull);
+        System.out.println(alphaIsNull);
+
         if(level == 0) {
             Long firstts = (Timestamp.valueOf(dataPoints.get(0).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
             Long lastts = (Timestamp.valueOf(dataPoints.get(dataPoints.size() - 1).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
@@ -241,8 +251,6 @@ public class LayerThread extends Thread{
                 timeWeights.add(weight);
                 lastTimestamp = t.getTime();
             }
-
-            System.out.println("percent" + percent);
 
             Object lastValue = dataPoints.get(0).get(label);
             Double maxValue, minValue;
@@ -287,9 +295,27 @@ public class LayerThread extends Thread{
             }
             double valueRange = maxValue - minValue;
 
+            if(percentIsNull){
+                int timeOutlierNum = OutlierDetection.zscoreOutlierNum(timeWeights, 3);
+                System.out.println("timeOutlierNum" + timeOutlierNum);
+                Double[] timeWeightStat = timeWeights.toArray(new Double[0]);
+                Arrays.sort(timeWeightStat);
+                percent = timeWeightStat[timeWeights.size() - (timeOutlierNum > 0 ? timeOutlierNum : 1)];
+                if(percent <= 0) percent = timeWeightStat[timeWeights.size() * 9999 / 100];
+            }
+
+            if(alphaIsNull){
+                int valueOutlierNum = OutlierDetection.zscoreOutlierNum(valueWeights, 3);
+                System.out.println("valueOutlierNum" + valueOutlierNum);
+                Double[] valueWeightStat = valueWeights.toArray(new Double[0]);
+                Arrays.sort(valueWeightStat);
+                alpha = valueWeightStat[valueWeights.size() - (valueOutlierNum > 0 ? valueOutlierNum : 1)];
+                if(alpha <= 0) alpha = valueWeightStat[valueWeights.size() * 9999 / 100];
+            }
+
             double grad = 0.0;
             for (int i = 1; i < dataPoints.size(); i++) {
-                if (timeWeights.get(i) >= percent || valueWeights.get(i) >= alpha) grad = Double.POSITIVE_INFINITY;
+                if (timeWeights.get(i) > percent || valueWeights.get(i) > alpha) grad = Double.POSITIVE_INFINITY;
                 else grad = Math.atan(valueWeights.get(i) / timeWeights.get(i));
                 grads.add(grad);
             }
@@ -301,13 +327,14 @@ public class LayerThread extends Thread{
                 if (Double.isInfinite(grads.get(i)) || Double.isInfinite(grads.get(i - 1))) {
                     weights.add(-1.0);
                 } else {
-                    double t1 = timeWeights.get(i) / percent * 100;
-                    double t2 = timeWeights.get(i + 1) / percent * 100;
-                    double v1 = valueWeights.get(i) / alpha * 100;
-                    double v2 = valueWeights.get(i + 1) / alpha * 100;
+                    double t1 = timeWeights.get(i) * 100 / percent;
+                    double t2 = timeWeights.get(i + 1) * 100 / percent;
+                    double v1 = valueWeights.get(i) * 100 / alpha;
+                    double v2 = valueWeights.get(i + 1) * 100 / alpha;
                     double AB = Math.sqrt(t1 * t1 + v1 * v1);
                     double BC = Math.sqrt(t2 * t2 + v2 * v2);
                     double w = (AB + BC);
+                    if(Double.isNaN(w)) w = 0;
                     maxWeight = Math.max(w, maxWeight);
                     weights.add(w);
                 }
@@ -332,6 +359,7 @@ public class LayerThread extends Thread{
 
         // 二分查找
         int n = dataPoints.size() / 4 / ratio;
+        int outliers = 0;
         long lo = 0, hi = weights.size() * 100;
         while (lo < hi){
             long mid = lo + (hi - lo >> 1);
@@ -339,6 +367,7 @@ public class LayerThread extends Thread{
             double sum = 0;
             for (double weight : weights) {
                 if(weight < 0){
+                    outliers++;
                     if(sum > 0) count++;
                     sum = 0;
                 }
@@ -349,10 +378,12 @@ public class LayerThread extends Thread{
                 else sum += weight;
             }
             count++;
+            System.out.println(count);
+            System.out.println(mid);
             if(count >= n) lo = mid + 1;
             else hi = mid;
         }
-        long bucketSum = lo;
+        bucketSum =  lo;
         System.out.println("bucketSum" + bucketSum);
         double sum = 0;
         int lastIndex = 0;
@@ -436,17 +467,56 @@ public class LayerThread extends Thread{
         StringBuilder sb;
         String bigSql;
 
+        System.out.println("percent" + percent);
+        System.out.println("alpha" + alpha);
+
+
+        System.out.println(dataPoints.size());
+        System.out.println(sampleDataPoints.size());
+
+        // 删除上次的最后一桶
+        deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
+        System.out.println(deletesql);
+        pgtool.queryUpdate(connection, deletesql);
+
+        // 写入新一批样本
+        sampleDataPoints.sort(sampleComparator);
+        ErrorController.lineError(dataPoints, sampleDataPoints, label, level == 0);
+        sqls = new LinkedList<>();
+        for(Map<String, Object> map : sampleDataPoints){
+            sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
+        }
+        sb = new StringBuilder();
+        for(String sql : sqls) {
+            if(sql.toLowerCase().contains("nan")) System.out.println(sql);
+            else sb.append(sql);
+        }
+        bigSql = sb.toString();
+        pgtool.queryUpdate(connection, bigSql);
+
+        // 更新sampleQueue给下一层级
+        for(Map<String, Object> s : sampleDataPoints) s.put(columns.toLowerCase(), s.get(label));
+        sampleQueue.addAll(sampleDataPoints);
+
+        // 统计throughput
+        throughput += dataPoints.size();
+        usedtime = System.currentTimeMillis() - setuptime;
+        long throughtime = System.currentTimeMillis() - sts + 1L;
+        System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, dataPoints.size() * 1000 / throughtime));
+
+
+
         // keep sampling data
         while(!exit){
 
             if (level > 0) {
                 while (true){
-                    if(dataQueue.size() >= kickOffSampling){
+                    if(dataQueue.size() >= kickOffSampling / 10){
                         break;
                     }
                     else {
                         try {
-                            Thread.sleep(100);
+                            Thread.sleep(100 * level);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
@@ -454,9 +524,14 @@ public class LayerThread extends Thread{
                 }
             }
             else {
+                // level = 0
                 if(dataPoints.size() < patchLimit) {
-                    exit = true;
                     System.out.println("L0 catched up <<<<<<<<<<<<<<<!!!!!!!!!!!!!!");
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
 
@@ -470,13 +545,14 @@ public class LayerThread extends Thread{
                     }
                 }
                 else {
+                    // level = 0
                     linkedDataPoints = DataController._dataPoints(
-                        level > 0 ? innerUrl : url,
-                        level > 0 ? innerUserName : username,
-                        level > 0 ? innerPassword : password,
-                        level > 0 ? pgDatabase : database,
+                        url,
+                        username,
+                        password,
+                        database,
                         timeseries,
-                        level > 0 ? columns + ", weight" : columns,
+                        columns,
                         latestTime,
                         null,
                         String.format(" limit %s", patchLimit),
@@ -484,7 +560,7 @@ public class LayerThread extends Thread{
                         "map",
                         null,
                         null,
-                        level > 0 ? "pg" : "iotdb");
+                        dbtype);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -515,7 +591,6 @@ public class LayerThread extends Thread{
                     lastTimestamp = t.getTime();
                 }
 
-                System.out.println("percent" + percent);
 
                 Object lastValue = dataPoints.get(0).get(label);
                 Double maxValue, minValue;
@@ -561,7 +636,7 @@ public class LayerThread extends Thread{
 
                 double grad = 0.0;
                 for (int i = 1; i < dataPoints.size(); i++) {
-                    if (timeWeights.get(i) >= percent || valueWeights.get(i) >= alpha) grad = Double.POSITIVE_INFINITY;
+                    if (timeWeights.get(i) > percent || valueWeights.get(i) > alpha) grad = Double.POSITIVE_INFINITY;
                     else grad = Math.atan(valueWeights.get(i) / timeWeights.get(i));
                     grads.add(grad);
                 }
@@ -573,13 +648,14 @@ public class LayerThread extends Thread{
                     if (Double.isInfinite(grads.get(i)) || Double.isInfinite(grads.get(i - 1))) {
                         weights.add(-1.0);
                     } else {
-                        double t1 = timeWeights.get(i) / percent * 100;
-                        double t2 = timeWeights.get(i + 1) / percent * 100;
-                        double v1 = valueWeights.get(i) / alpha * 100;
-                        double v2 = valueWeights.get(i + 1) / alpha * 100;
+                        double t1 = timeWeights.get(i) * 100 / percent;
+                        double t2 = timeWeights.get(i + 1) * 100 / percent;
+                        double v1 = valueWeights.get(i) * 100 / alpha;
+                        double v2 = valueWeights.get(i + 1) * 100 / alpha;
                         double AB = Math.sqrt(t1 * t1 + v1 * v1);
                         double BC = Math.sqrt(t2 * t2 + v2 * v2);
                         double w = (AB + BC);
+                        if(Double.isNaN(w)) w = 0;
                         maxWeight = Math.max(w, maxWeight);
                         weights.add(w);
                     }
@@ -595,28 +671,57 @@ public class LayerThread extends Thread{
                 System.out.println(weights.size());
             }
 
-            // divide buckets
+            // divide bucket
+            buckets = new ArrayList<>();
+            int bcount  = 0;
             {
-                buckets = new LinkedList<>();
                 sum = 0;
                 lastIndex = 0;
-                for (int i = 0; i < weights.size(); i++) {
+                Bucket b;
+
+                for(int i = 0; i < weights.size(); i++){
                     double weight = weights.get(i);
-                    if (sum + weight > bucketSum) {
-                        buckets.add(new Bucket(dataPoints.subList(lastIndex, i)));
+                    if(weight < 0){
+                        if(sum > 0) {
+                            b = new Bucket(dataPoints.subList(lastIndex, i));
+                            bcount += b.getDataPoints().size();
+                            buckets.add(b);
+                            b = new Bucket(dataPoints.subList(i, i+1));
+                            bcount += b.getDataPoints().size();
+                            buckets.add(b);
+                            lastIndex = i+1;
+                            sum = 0;
+                        }
+                        else{
+                            b = new Bucket(dataPoints.subList(i, i+1));
+                            bcount += b.getDataPoints().size();
+                            buckets.add(b);
+                            lastIndex = i+1;
+                            sum = 0;
+                        }
+                    }
+                    if(sum + weight > bucketSum){
+                        b = new Bucket(dataPoints.subList(lastIndex, i));
+                        bcount += b.getDataPoints().size();
+                        buckets.add(b);
                         lastIndex = i;
                         sum = weight;
-                    } else sum += weight;
+                    }
+                    else sum += weight;
                 }
-                buckets.add(new Bucket(dataPoints.subList(lastIndex, dataPoints.size())));
+                b = new Bucket(dataPoints.subList(lastIndex, dataPoints.size()));
+                bcount += b.getDataPoints().size();
+                buckets.add(b);
             }
 
             // 桶内采样
+            int count = 0;
             {
                 sampleDataPoints = new LinkedList<>();
                 st = System.currentTimeMillis();
                 for (Bucket bucket : buckets) {
                     List<Map<String, Object>> datapoints = bucket.getDataPoints();
+                    count += datapoints.size();
                     if (datapoints.size() <= 4) {
                         sampleDataPoints.addAll(datapoints);
                         continue;
@@ -644,6 +749,10 @@ public class LayerThread extends Thread{
                     sampleDataPoints.add(datapoints.get(datapoints.size() - 1));
                 }
             }
+            System.out.println("data points count:" + count);
+
+            System.out.println(dataPoints.size());
+            System.out.println(sampleDataPoints.size());
 
             // 删除上次的最后一桶
             deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
@@ -652,7 +761,7 @@ public class LayerThread extends Thread{
 
             // 写入新一批样本
             sampleDataPoints.sort(sampleComparator);
-            ErrorController.lineError(dataPoints, sampleDataPoints, label);
+            ErrorController.lineError(dataPoints, sampleDataPoints, label, level == 0);
             sqls = new LinkedList<>();
             for(Map<String, Object> map : sampleDataPoints){
                 sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
@@ -672,7 +781,8 @@ public class LayerThread extends Thread{
             // 统计throughput
             throughput += dataPoints.size();
             usedtime = System.currentTimeMillis() - setuptime;
-            System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, throughput / usedtime * 1000));
+            throughtime = System.currentTimeMillis() - sts + 1L;
+            System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, dataPoints.size() * 1000 / throughtime));
 
             // 根据throughput触发下一层级
             if(!hadKickOff && throughput > kickOffThreshold){
@@ -681,7 +791,7 @@ public class LayerThread extends Thread{
                 String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
                 System.out.println("kick off the level " + (level +1) + "<<<<<<!!!!!!!");
                 System.out.println(newSubId);
-                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", percent, alpha, batchlimit, newLock, newCondition, sampleQueue);
+                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", percent * ratio * ratio, alpha * ratio * ratio, batchlimit, newLock, newCondition, sampleQueue, bucketSum);
                 pgsubscribeThread.start();
             }
 
@@ -733,7 +843,7 @@ public class LayerThread extends Thread{
             // 单独处理最新桶
             newcomingData = buckets.get(buckets.size()-1).getDataPoints();
             // 如果时间戳没有变化，或者追上截止日期则停止
-            if(latestTime.equals(newcomingData.get(0).get("time").toString().substring(0,19)) || (endtime != null && latestTime.compareTo(endtime) >= 0)){
+            if(endtime != null && latestTime.compareTo(endtime) >= 0){
                 exit = true;
                 System.out.println("L0 catched up <<<<<<<<<<<<<<<!!!!!!!!!!!!!!");
             }

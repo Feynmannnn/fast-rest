@@ -1,5 +1,6 @@
 package hello.refactor;
 
+import hello.refactor.util.OutlierDetection;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,8 +30,8 @@ public class BucketsController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
-            @RequestParam(value="percent", defaultValue = "1") Double percent,
-            @RequestParam(value="alpha", defaultValue = "1") Double alpha
+            @RequestParam(value="percent", required = false) Double percent,
+            @RequestParam(value="alpha", required = false) Double alpha
     ) throws SQLException {
 
         url = url.replace("\"", "");
@@ -206,6 +207,25 @@ public class BucketsController {
         }
         double valueRange = maxValue - minValue;
 
+        boolean percentIsNull = percent == null;
+        boolean alphaIsNull = alpha == null;
+
+        if(percentIsNull){
+            int timeOutlierNum = OutlierDetection.zscoreOutlierNum(timeWeights, 3);
+            Double[] timeWeightStat = timeWeights.toArray(new Double[0]);
+            Arrays.sort(timeWeightStat);
+            percent = timeWeightStat[timeWeights.size() - timeOutlierNum - 1];
+            if(percent <= 0) percent = 1.0;
+        }
+
+        if(alphaIsNull){
+            int valueOutlierNum = OutlierDetection.zscoreOutlierNum(valueWeights, 3);
+            Double[] valueWeightStat = valueWeights.toArray(new Double[0]);
+            Arrays.sort(valueWeightStat);
+            alpha = valueWeightStat[valueWeights.size() - valueOutlierNum - 1];
+            if(alpha <= 0) alpha = 1.0;
+        }
+
         double grad = 0.0;
         for(int i = 1; i < dataPoints.size(); i++){
             if(timeWeights.get(i) >= percent || valueWeights.get(i) >= alpha) grad = Double.POSITIVE_INFINITY;
@@ -221,13 +241,14 @@ public class BucketsController {
                 weights.add(-1.0);
             }
             else{
-                double t1 = timeWeights.get(i) / timestampRange * 5;
-                double t2 = timeWeights.get(i+1) / timestampRange * 5;
-                double v1 = valueWeights.get(i) / valueRange;
-                double v2 = valueWeights.get(i+1) / valueRange;
+                double t1 = timeWeights.get(i) * 100 / percent;
+                double t2 = timeWeights.get(i + 1) * 100 / percent;
+                double v1 = valueWeights.get(i) * 100 / alpha;
+                double v2 = valueWeights.get(i + 1) * 100 / alpha;
                 double AB = Math.sqrt(t1 * t1 + v1 * v1);
                 double BC = Math.sqrt(t2 * t2 + v2 * v2);
                 double w = (AB + BC);
+                if(Double.isNaN(w)) w = 0;
                 maxWeight = Math.max(w, maxWeight);
                 weights.add(w);
             }

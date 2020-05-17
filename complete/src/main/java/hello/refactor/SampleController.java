@@ -31,8 +31,8 @@ public class SampleController {
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="sample", defaultValue = "m4") String sample,
-            @RequestParam(value="percent", defaultValue = "1") Double percent,
-            @RequestParam(value="alpha", defaultValue = "1") Double alpha
+            @RequestParam(value="percent", required = false) Double percent,
+            @RequestParam(value="alpha", required = false) Double alpha
     ) throws Exception {
 
         url = url.replace("\"", "");

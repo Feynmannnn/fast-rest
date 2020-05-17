@@ -187,7 +187,7 @@ public class QueryController {
         for(String tableName : tables){
             System.out.println(tableName);
             res = DataController._dataPoints(
-                    innerUrl, innerUserName, innerPassword, database, tableName, columns, starttime, endtime, null, null, "map", null, null, "pg");
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", error, area", starttime, endtime, null, null, "map", null, null, "pg");
             System.out.println(tableName);
 
             double error= 0.0;
@@ -198,7 +198,8 @@ public class QueryController {
                 area += (double)res.get(i).get("area");
             }
 
-            if(error / area <= percent) break;
+            System.out.println(error / area);
+            if((error / area) <= percent) break;
         }
 
         System.out.println("publish used time:" + (System.currentTimeMillis() - t));

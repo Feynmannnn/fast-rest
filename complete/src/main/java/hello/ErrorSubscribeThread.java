@@ -184,7 +184,7 @@ public class ErrorSubscribeThread extends Thread {
 
         Collections.sort(sampleDataPoints, sampleComparator);
 
-        ErrorController.lineError(dataPoints, sampleDataPoints, label);
+        ErrorController.lineError(dataPoints, sampleDataPoints, label, true);
 
         List<String> sqls = new LinkedList<>();
         for(Map<String, Object> map : sampleDataPoints) {
@@ -272,7 +272,7 @@ public class ErrorSubscribeThread extends Thread {
             // 写入新一批样本
             Collections.sort(sampleDataPoints, sampleComparator);
 
-            ErrorController.lineError(dataPoints, sampleDataPoints, label);
+            ErrorController.lineError(dataPoints, sampleDataPoints, label, true);
 
             sqls = new LinkedList<>();
             for(Map<String, Object> map : sampleDataPoints){

@@ -60,7 +60,7 @@ public class ErrorController {
         List<Map<String, Object>> lsample = new M4SampleController().dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, amount, dbtype, percent, alpha);
         List<Map<String, Object>> sample = new ArrayList<>(lsample);
 
-        lineError(data, sample, label);
+        lineError(data, sample, label, true);
 
         double error= 0.0;
         double area = 0.0;
@@ -78,12 +78,14 @@ public class ErrorController {
         return error / area;
     }
 
-    public static void lineError(List<Map<String, Object>> data, List<Map<String, Object>> sample, String label){
+    public static void lineError(List<Map<String, Object>> data, List<Map<String, Object>> sample, String label, boolean isRawData){
 
         if(sample.size() < 1) return;
         sample.get(0).put("error", 0.0);
         sample.get(0).put("area", 0.0);
         if(sample.size() == 1) return;
+
+        System.out.println("isRawData:" + isRawData);
 
         int lastIndex = 1;
         int newIndex;
@@ -111,6 +113,7 @@ public class ErrorController {
 
             double error = 0.0;
             double area = 0.0;
+            double weight = 0.0;
 
 //            System.out.println("last index:" + lastIndex);
 //            System.out.println("new index:" + newIndex);
@@ -134,7 +137,15 @@ public class ErrorController {
                 else if(value instanceof Long) y1 = ((Long) value).doubleValue();
                 else y1 = (Double) value;
 
-                area += (x1 - x0) * (Math.abs(y0) + Math.abs(y1)) / 2;
+                if(isRawData) {
+                    area += (x1 - x0) * (Math.abs(y0) + Math.abs(y1)) / 2;
+                }
+                else {
+                    area += (Double)data.get(j).get("area");
+                    error += (Double)data.get(j).get("error");
+                }
+
+                weight += (Double)data.get(j).get("weight");
 
                 // 线性插值
                 double dy0 = (x0 - a0) * (b1 - b0) / (a1 - a0) + b0 - y0;
@@ -174,15 +185,16 @@ public class ErrorController {
 
             sample.get(i).put("error", error);
             sample.get(i).put("area", area);
+            sample.get(i).put("weight", area);
         }
 
-        System.out.println("the time stamp comparasion:");
-        System.out.println("raw data time:" + data.get(0).get("time"));
-        System.out.println("raw data value:" + data.get(0).get(label));
-        System.out.println("sample data time:" + sample.get(0).get("time"));
-        System.out.println("sample data timestamp:" + sample.get(0).get("timestamp"));
-        System.out.println("sample data value:" + sample.get(0).get(label));
-        System.out.println("<<<<<<<<<<<<<<<<<<");
+//        System.out.println("the time stamp comparasion:");
+//        System.out.println("raw data time:" + data.get(0).get("time"));
+//        System.out.println("raw data value:" + data.get(0).get(label));
+//        System.out.println("sample data time:" + sample.get(0).get("time"));
+//        System.out.println("sample data timestamp:" + sample.get(0).get("timestamp"));
+//        System.out.println("sample data value:" + sample.get(0).get(label));
+//        System.out.println("<<<<<<<<<<<<<<<<<<");
 
     }
 }
