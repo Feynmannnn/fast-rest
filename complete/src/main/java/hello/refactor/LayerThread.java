@@ -15,54 +15,43 @@ import java.util.*;
 import java.util.Date;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class LayerThread extends Thread{
 
+    // 根据时间戳对数据进行排序 （从TimescaleDB查询的数据结果存在时间的乱序问题）
     private static Comparator<Map<String, Object>> sampleComparator = new Comparator<Map<String, Object>>(){
         @Override
         public int compare(Map<String, Object> sampleDataPoint1, Map<String, Object> sampleDataPoint2){
-            long t1 = (Timestamp.valueOf(sampleDataPoint1.get("time").toString())).getTime();
-            long t2 = (Timestamp.valueOf(sampleDataPoint2.get("time").toString())).getTime();
-            return Math.round(t1-t2);
+            return sampleDataPoint1.get("time").toString().compareTo(sampleDataPoint2.get("time").toString());
         }
     };
 
     public volatile boolean exit = false;
     private static final String salt = "&%12345***&&%%$$#@1";
-    String url;
-    String username;
-    String password;
-    String database;
-    String timeseries;
-    String columns;
-    String starttime;
-    String endtime;
-    String TYPE;
-    Integer ratio;
-    Long interval = 300L;
-    String subId;
-    String latestTime = "";
-    Integer level = 0;
-    List<Map<String, Object>> newcomingData = new LinkedList<>();
-    String sample;
-    String dbtype;
-    Double percent;
-    Double alpha;
-    final long setuptime;
-    long throughput;
-    long batchlimit;
-    Lock lock;
-    Lock newLock;
-    final Condition lockCondition;
-    final Condition newCondition;
-    BlockingQueue<Map<String, Object>> dataQueue;
-    BlockingQueue<Map<String, Object>> sampleQueue;
-    Long bucketSum;
+    private String url;
+    private String username;
+    private String password;
+    private String database;
+    private String timeseries;
+    private String columns;
+    private String starttime;
+    private String endtime;
+    private String TYPE;
+    private Integer ratio;
+    private String subId;
+    private Integer level = 0;
+    private String sample;
+    private String dbtype;
+    private Double percent;
+    private Double alpha;
+    private final long setuptime;
+    private long throughput;
+    private long batchlimit;
+    private BlockingQueue<Map<String, Object>> dataQueue;
+    private BlockingQueue<Map<String, Object>> sampleQueue;
+    private Long bucketSum;
 
-    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double percent, Double alpha, Long batchlimit, Lock lock, Condition lockCondition, BlockingQueue<Map<String, Object>> dataQueue, Long bucketSum){
+    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double percent, Double alpha, Long batchlimit, BlockingQueue<Map<String, Object>> dataQueue, Long bucketSum){
         this.url = url;
         this.username = username;
         this.password = password;
@@ -79,41 +68,38 @@ public class LayerThread extends Thread{
         this.level = level;
         this.sample = sample;
         this.dbtype = dbtype;
-        for(int i = 0; i < level; i++){
-            interval *= 50;
-        }
-        this.setuptime = System.currentTimeMillis();
-        this.throughput = 0L;
         this.batchlimit = batchlimit;
-        this.lock = lock;
-        this.lockCondition = lockCondition;
-        this.newLock = new ReentrantLock();
-        this.newCondition = newLock.newCondition();
         this.dataQueue = dataQueue;
         this.sampleQueue = new LinkedBlockingQueue<>();
         this.bucketSum = bucketSum;
+        
+        this.setuptime = System.currentTimeMillis();
+        this.throughput = 0L;
     }
 
     @Override
     public void run() {
 
-        batchlimit = 10000;
+        // batchlimit L0层级每次从数据库读取的数据量
+        batchlimit = 100000;
+
+        // kickOffSampling 触发新一轮采样的累计数据数目
         long kickOffSampling = 1000L;
 
+        // 触发新一层级样本采样的数据数目
         long kickOffThreshold = kickOffSampling * ratio;
+
+        //是否已经触发过下一层级采样线程
         boolean hadKickOff = false;
 
+        // 本层级样本在TSDB中的数据表
         String pgDatabase = database.replace('.', '_');
         String tableName = "L" + level + "_M" + subId;
-        System.out.println(tableName);
 
-        latestTime = starttime;
+        // 最新桶内的最早时间戳，下一批次数据的查询起始时间
+        String latestTime = starttime;
 
-        // fetch [patchLimit] rows once
-        Long patchLimit = batchlimit;
-
-        long sts = System.currentTimeMillis();
-
+        // 读取config文件获取内置数据库信息
         String config = "";
         try {
             BufferedReader br = new BufferedReader(new FileReader("fast.config"));
@@ -130,7 +116,6 @@ public class LayerThread extends Thread{
         }
 
         JSONObject jsonObject = JSONObject.parseObject(config);
-        String autovisURL = jsonObject.getString("autovisURL");
         String innerUrl = jsonObject.getString("innerURL");
         String innerUserName = jsonObject.getString("innerusername");
         String innerPassword = jsonObject.getString("innerpassword");
@@ -147,10 +132,13 @@ public class LayerThread extends Thread{
             return;
         }
 
+        if(level == 0){
+            String createDatabaseSql = String.format("create database %s;", pgDatabase);
+            System.out.println(createDatabaseSql);
+            pgtool.queryUpdate(connection, createDatabaseSql);
+        }
         // create database if not exist
-        String createDatabaseSql = String.format("create database %s;", pgDatabase);
-        System.out.println(createDatabaseSql);
-        pgtool.queryUpdate(connection, createDatabaseSql);
+
 
         pgtool = new PGConnection(
                 innerUrl + pgDatabase.toLowerCase(),
@@ -158,10 +146,13 @@ public class LayerThread extends Thread{
                 innerPassword
         );
         connection = pgtool.getConn();
-        String extentionsql = "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;";
-        pgtool.queryUpdate(connection, extentionsql);
 
-        // create table if not exist
+        if(level == 0){
+            String extentionsql = "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;";
+            pgtool.queryUpdate(connection, extentionsql);
+        }
+
+        // create table
         String createTableSql =
                 "CREATE TABLE %s (" +
                 "   time    TIMESTAMPTZ         NOT NULL," +
@@ -183,20 +174,18 @@ public class LayerThread extends Thread{
         String label = dbtype.equals("iotdb") ? iotdbLabel : columns.toLowerCase();
         String timelabel = "time";
 
-        // fetch first patch
-
+        // 获取第一批数据，目标为计算BucketSum与时间数值的离群值阈值
         List<Map<String, Object>> linkedDataPoints = null;
         try {
             if(level > 0){
                 linkedDataPoints = new LinkedList<>();
-                long k = Math.min(dataQueue.size(), patchLimit);
+                long k = Math.min(dataQueue.size(), batchlimit);
                 System.out.println("k = " + k);
                 for(int i = 0; i < k; i++){
                     linkedDataPoints.add(dataQueue.poll());
                 }
             }
-            else {
-                // level = 0
+            else {// level == 0
                 linkedDataPoints = DataController._dataPoints(
                     url,
                     username,
@@ -206,7 +195,7 @@ public class LayerThread extends Thread{
                     columns,
                     latestTime,
                     null,
-                    String.format(" limit %s", patchLimit),
+                    String.format(" limit %s", batchlimit),
                     null,
                     "map",
                     null,
@@ -218,9 +207,11 @@ public class LayerThread extends Thread{
         }
         System.out.println("datasize: " + (linkedDataPoints == null ? "null": linkedDataPoints.size()));
         List<Map<String, Object>> dataPoints = new ArrayList<>(linkedDataPoints);
+        System.out.println("first data point:" + dataPoints.get(0).get("time").toString());
+        System.out.println("last data point:" + dataPoints.get(dataPoints.size() - 1).get("time").toString());
 
         // time format change for iotdb
-        for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
+        if(dbtype.equals("iotdb")) for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
 
         // first weights calc
         // TODO: js version of datatype compatible
@@ -229,20 +220,20 @@ public class LayerThread extends Thread{
         List<Double> valueWeights = new ArrayList<>();
         List<Double> grads = new ArrayList<>();
         List<Bucket> buckets = new LinkedList<>();
-        long maxTimeWeight = 0;
-        Double valueSum = 0.0;
-        double maxValueWeight = 0.0;
+//        long maxTimeWeight = 0;
+//        Double valueSum = 0.0;
+//        double maxValueWeight = 0.0;
 
-        boolean percentIsNull = percent == null;
-        boolean alphaIsNull = alpha == null;
+        boolean percentIsNull = true;
+        boolean alphaIsNull = true;
         System.out.println("level " + level);
         System.out.println(percentIsNull);
         System.out.println(alphaIsNull);
 
         if(level == 0) {
-            Long firstts = (Timestamp.valueOf(dataPoints.get(0).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
-            Long lastts = (Timestamp.valueOf(dataPoints.get(dataPoints.size() - 1).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
-            Long timestampRange = lastts - firstts;
+//            Long firstts = (Timestamp.valueOf(dataPoints.get(0).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+//            Long lastts = (Timestamp.valueOf(dataPoints.get(dataPoints.size() - 1).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+//            Long timestampRange = lastts - firstts;
 
             long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
             for (Map<String, Object> point : dataPoints) {
@@ -301,7 +292,7 @@ public class LayerThread extends Thread{
                 Double[] timeWeightStat = timeWeights.toArray(new Double[0]);
                 Arrays.sort(timeWeightStat);
                 percent = timeWeightStat[timeWeights.size() - (timeOutlierNum > 0 ? timeOutlierNum : 1)];
-                if(percent <= 0) percent = timeWeightStat[timeWeights.size() * 9999 / 100];
+                if(percent <= 0) percent = timeWeightStat[timeWeights.size() * 9999 / 10000];
             }
 
             if(alphaIsNull){
@@ -310,11 +301,15 @@ public class LayerThread extends Thread{
                 Double[] valueWeightStat = valueWeights.toArray(new Double[0]);
                 Arrays.sort(valueWeightStat);
                 alpha = valueWeightStat[valueWeights.size() - (valueOutlierNum > 0 ? valueOutlierNum : 1)];
-                if(alpha <= 0) alpha = valueWeightStat[valueWeights.size() * 9999 / 100];
+                if(alpha <= 0) alpha = valueWeightStat[valueWeights.size() * 9999 / 10000];
             }
+
+            System.out.println(percent);
+            System.out.println(alpha);
 
             double grad = 0.0;
             for (int i = 1; i < dataPoints.size(); i++) {
+                System.out.println(timeWeights.get(i) + "," + valueWeights.get(i));
                 if (timeWeights.get(i) > percent || valueWeights.get(i) > alpha) grad = Double.POSITIVE_INFINITY;
                 else grad = Math.atan(valueWeights.get(i) / timeWeights.get(i));
                 grads.add(grad);
@@ -327,10 +322,10 @@ public class LayerThread extends Thread{
                 if (Double.isInfinite(grads.get(i)) || Double.isInfinite(grads.get(i - 1))) {
                     weights.add(-1.0);
                 } else {
-                    double t1 = timeWeights.get(i) * 100 / percent;
-                    double t2 = timeWeights.get(i + 1) * 100 / percent;
-                    double v1 = valueWeights.get(i) * 100 / alpha;
-                    double v2 = valueWeights.get(i + 1) * 100 / alpha;
+                    double t1 = timeWeights.get(i) * 100  / percent;
+                    double t2 = timeWeights.get(i + 1) * 100  / percent;
+                    double v1 = valueWeights.get(i) * 100  / alpha;
+                    double v2 = valueWeights.get(i + 1) * 100  / alpha;
                     double AB = Math.sqrt(t1 * t1 + v1 * v1);
                     double BC = Math.sqrt(t2 * t2 + v2 * v2);
                     double w = (AB + BC);
@@ -342,7 +337,7 @@ public class LayerThread extends Thread{
             weights.add(0.0);
 
             for (int i = 0; i < weights.size(); i++) {
-                if (weights.get(i) > 0) weights.set(i, weights.get(i) * 100 / maxWeight);
+//                if (weights.get(i) > 0) weights.set(i, weights.get(i) * 100 / maxWeight);
                 dataPoints.get(i).put("weight", weights.get(i));
             }
         }
@@ -378,13 +373,11 @@ public class LayerThread extends Thread{
                 else sum += weight;
             }
             count++;
-            System.out.println(count);
-            System.out.println(mid);
             if(count >= n) lo = mid + 1;
             else hi = mid;
         }
-        bucketSum =  lo;
-        System.out.println("bucketSum" + bucketSum);
+        bucketSum = bucketSum == null ? lo : bucketSum;
+        System.out.println("level " + level + " bucketSum:" + bucketSum);
         double sum = 0;
         int lastIndex = 0;
 
@@ -434,7 +427,8 @@ public class LayerThread extends Thread{
                 sampleDataPoints.addAll(datapoints);
                 continue;
             }
-            sampleDataPoints.add(datapoints.get(0));
+            Set<Map<String, Object>> set = new HashSet<>();
+            set.add(datapoints.get(0));
             Map<String, Object> maxi = datapoints.get(0);
             Map<String, Object> mini = datapoints.get(0);
             for(int i = 1; i < datapoints.size()-1; i++){
@@ -450,29 +444,25 @@ public class LayerThread extends Thread{
                 else if(value instanceof Long) mini = (Long) value <= (Long)mini.get(label) ? candi : mini;
                 else mini = (Double) value <= (Double)mini.get(label) ? candi : mini;
             }
-            sampleDataPoints.add(maxi);
-            sampleDataPoints.add(mini);
-            sampleDataPoints.add(datapoints.get(datapoints.size()-1));
+            set.add(maxi);
+            set.add(mini);
+            set.add(datapoints.get(datapoints.size()-1));
+            sampleDataPoints.addAll(set);
         }
         System.out.println("bucket sample used time: " + (System.currentTimeMillis() - st) + "ms");
+        System.out.println("first sample point:" + sampleDataPoints.get(0).get("time").toString());
+        System.out.println("last sample point:" + sampleDataPoints.get(sampleDataPoints.size() - 1).get("time").toString());
+
 
         // 删除上次的最后一桶
         String deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
-        long usedtime = System.currentTimeMillis() - setuptime;
 
         // sample complete, persist to iotdb
-        String batchInsertFormat = "insert into %s (time, weight, error, area, %s) values ('%s+08', %s, %s, %s, %s);";
+        String batchInsertFormat = "insert into %s (time, weight, error, area, %s) values ('%s', %s, %s, %s, %s);";
 
         List<String> sqls;
         StringBuilder sb;
         String bigSql;
-
-        System.out.println("percent" + percent);
-        System.out.println("alpha" + alpha);
-
-
-        System.out.println(dataPoints.size());
-        System.out.println(sampleDataPoints.size());
 
         // 删除上次的最后一桶
         deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
@@ -484,7 +474,7 @@ public class LayerThread extends Thread{
         ErrorController.lineError(dataPoints, sampleDataPoints, label, level == 0);
         sqls = new LinkedList<>();
         for(Map<String, Object> map : sampleDataPoints){
-            sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
+            sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString(), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
         }
         sb = new StringBuilder();
         for(String sql : sqls) {
@@ -497,21 +487,26 @@ public class LayerThread extends Thread{
         // 更新sampleQueue给下一层级
         for(Map<String, Object> s : sampleDataPoints) s.put(columns.toLowerCase(), s.get(label));
         sampleQueue.addAll(sampleDataPoints);
+        System.out.println("sampleQueue size:" + sampleQueue.size());
+
+        latestTime = buckets.get(buckets.size() - 1).getDataPoints().get(0).get("time").toString();
 
         // 统计throughput
-        throughput += dataPoints.size();
-        usedtime = System.currentTimeMillis() - setuptime;
-        long throughtime = System.currentTimeMillis() - sts + 1L;
-        System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, dataPoints.size() * 1000 / throughtime));
+//        throughput += dataPoints.size();
+//        usedtime = System.currentTimeMillis() - setuptime;
+//        long throughtime = System.currentTimeMillis() - sts + 1L;
+//        System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, dataPoints.size() * 1000 / throughtime));
 
 
 
         // keep sampling data
         while(!exit){
 
+            long roundStartTime = System.currentTimeMillis();
+
             if (level > 0) {
                 while (true){
-                    if(dataQueue.size() >= kickOffSampling / 10){
+                    if(dataQueue.size() >= kickOffSampling){
                         break;
                     }
                     else {
@@ -525,7 +520,7 @@ public class LayerThread extends Thread{
             }
             else {
                 // level = 0
-                if(dataPoints.size() < patchLimit) {
+                if(dataPoints.size() < batchlimit) {
                     System.out.println("L0 catched up <<<<<<<<<<<<<<<!!!!!!!!!!!!!!");
                     try {
                         Thread.sleep(500);
@@ -538,7 +533,7 @@ public class LayerThread extends Thread{
             try {
                 if(level > 0){
                     linkedDataPoints = new LinkedList<>();
-                    long k = Math.min(dataQueue.size(), patchLimit);
+                    long k = Math.min(dataQueue.size(), batchlimit);
                     System.out.println("k = " + k);
                     for(int i = 0; i < k; i++){
                         linkedDataPoints.add(dataQueue.poll());
@@ -555,7 +550,7 @@ public class LayerThread extends Thread{
                         columns,
                         latestTime,
                         null,
-                        String.format(" limit %s", patchLimit),
+                        String.format(" limit %s", batchlimit),
                         null,
                         "map",
                         null,
@@ -566,7 +561,6 @@ public class LayerThread extends Thread{
                 e.printStackTrace();
             }
             dataPoints = new ArrayList<>(linkedDataPoints);
-//            dataPoints.addAll(linkedDataPoints);
 
             for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
 
@@ -579,92 +573,98 @@ public class LayerThread extends Thread{
                 valueWeights = new ArrayList<>();
                 grads = new ArrayList<>();
 
-                long firstts = (Timestamp.valueOf(dataPoints.get(0).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
-                long lastts = (Timestamp.valueOf(dataPoints.get(dataPoints.size() - 1).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
-                long timestampRange = lastts - firstts;
+                if(level == 0) {
 
-                long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
-                for (Map<String, Object> point : dataPoints) {
-                    Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
-                    Double weight = (t.getTime() - lastTimestamp) + 0.0;
-                    timeWeights.add(weight);
-                    lastTimestamp = t.getTime();
-                }
-
-
-                Object lastValue = dataPoints.get(0).get(label);
-                Double maxValue, minValue;
-                if (lastValue instanceof Double) {
-                    maxValue = ((Double) lastValue);
-                    minValue = ((Double) lastValue);
-                } else if (lastValue instanceof Long) {
-                    maxValue = (((Long) lastValue).doubleValue());
-                    minValue = (((Long) lastValue).doubleValue());
-                } else if (lastValue instanceof Integer) {
-                    maxValue = (((Integer) lastValue).doubleValue());
-                    minValue = (((Integer) lastValue).doubleValue());
-                } else {
-                    maxValue = ((Double) lastValue);
-                    minValue = ((Double) lastValue);
-                }
-
-                for (Map<String, Object> point : dataPoints) {
-                    Object value = point.get(label);
-                    double v;
-                    if (value instanceof Double) {
-                        v = ((Double) value - (Double) lastValue);
-                        maxValue = Math.max(maxValue, (Double) value);
-                        minValue = Math.min(minValue, (Double) value);
-                    } else if (value instanceof Long) {
-                        v = (((Long) value).doubleValue() - ((Long) lastValue).doubleValue());
-                        maxValue = Math.max(maxValue, ((Long) value).doubleValue());
-                        minValue = Math.min(minValue, ((Long) value).doubleValue());
-                    } else if (value instanceof Integer) {
-                        v = (((Integer) value).doubleValue() - ((Integer) lastValue).doubleValue());
-                        maxValue = Math.max(maxValue, ((Integer) value).doubleValue());
-                        minValue = Math.min(minValue, ((Integer) value).doubleValue());
-                    } else {
-                        v = ((Double) value - (Double) lastValue);
-                        maxValue = Math.max(maxValue, (Double) value);
-                        minValue = Math.min(minValue, (Double) value);
+                    long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
+                    for (Map<String, Object> point : dataPoints) {
+                        Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
+                        Double weight = (t.getTime() - lastTimestamp) + 0.0;
+                        timeWeights.add(weight);
+                        lastTimestamp = t.getTime();
                     }
-                    double valueWeight = (v);
-                    valueWeights.add(valueWeight);
-                    lastValue = value;
-                }
-                double valueRange = maxValue - minValue;
 
-                double grad = 0.0;
-                for (int i = 1; i < dataPoints.size(); i++) {
-                    if (timeWeights.get(i) > percent || valueWeights.get(i) > alpha) grad = Double.POSITIVE_INFINITY;
-                    else grad = Math.atan(valueWeights.get(i) / timeWeights.get(i));
+                    Object lastValue = dataPoints.get(0).get(label);
+                    Double maxValue, minValue;
+                    if (lastValue instanceof Double) {
+                        maxValue = ((Double) lastValue);
+                        minValue = ((Double) lastValue);
+                    } else if (lastValue instanceof Long) {
+                        maxValue = (((Long) lastValue).doubleValue());
+                        minValue = (((Long) lastValue).doubleValue());
+                    } else if (lastValue instanceof Integer) {
+                        maxValue = (((Integer) lastValue).doubleValue());
+                        minValue = (((Integer) lastValue).doubleValue());
+                    } else {
+                        maxValue = ((Double) lastValue);
+                        minValue = ((Double) lastValue);
+                    }
+
+                    for (Map<String, Object> point : dataPoints) {
+                        Object value = point.get(label);
+                        double v;
+                        if (value instanceof Double) {
+                            v = ((Double) value - (Double) lastValue);
+                            maxValue = Math.max(maxValue, (Double) value);
+                            minValue = Math.min(minValue, (Double) value);
+                        } else if (value instanceof Long) {
+                            v = (((Long) value).doubleValue() - ((Long) lastValue).doubleValue());
+                            maxValue = Math.max(maxValue, ((Long) value).doubleValue());
+                            minValue = Math.min(minValue, ((Long) value).doubleValue());
+                        } else if (value instanceof Integer) {
+                            v = (((Integer) value).doubleValue() - ((Integer) lastValue).doubleValue());
+                            maxValue = Math.max(maxValue, ((Integer) value).doubleValue());
+                            minValue = Math.min(minValue, ((Integer) value).doubleValue());
+                        } else {
+                            System.out.println("label" + label);
+                            v = ((Double) value - (Double) lastValue);
+                            maxValue = Math.max(maxValue, (Double) value);
+                            minValue = Math.min(minValue, (Double) value);
+                        }
+                        double valueWeight = (v);
+                        valueWeights.add(valueWeight);
+                        lastValue = value;
+                    }
+                    double valueRange = maxValue - minValue;
+
+                    double grad = 0.0;
+                    for (int i = 1; i < dataPoints.size(); i++) {
+                        if (timeWeights.get(i) > percent || valueWeights.get(i) > alpha) grad = Double.POSITIVE_INFINITY;
+                        else grad = Math.atan(valueWeights.get(i) / timeWeights.get(i));
+                        grads.add(grad);
+                    }
                     grads.add(grad);
-                }
-                grads.add(grad);
 
-                double maxWeight = 0.0;
-                weights.add(0.0);
-                for (int i = 1; i < dataPoints.size() - 1; i++) {
-                    if (Double.isInfinite(grads.get(i)) || Double.isInfinite(grads.get(i - 1))) {
-                        weights.add(-1.0);
-                    } else {
-                        double t1 = timeWeights.get(i) * 100 / percent;
-                        double t2 = timeWeights.get(i + 1) * 100 / percent;
-                        double v1 = valueWeights.get(i) * 100 / alpha;
-                        double v2 = valueWeights.get(i + 1) * 100 / alpha;
-                        double AB = Math.sqrt(t1 * t1 + v1 * v1);
-                        double BC = Math.sqrt(t2 * t2 + v2 * v2);
-                        double w = (AB + BC);
-                        if(Double.isNaN(w)) w = 0;
-                        maxWeight = Math.max(w, maxWeight);
-                        weights.add(w);
+                    Double maxWeight = 0.0;
+                    weights.add(0.0);
+                    for (int i = 1; i < dataPoints.size() - 1; i++) {
+                        if (Double.isInfinite(grads.get(i)) || Double.isInfinite(grads.get(i - 1))) {
+                            weights.add(-1.0);
+                        } else {
+                            double t1 = timeWeights.get(i) * 100 / percent;
+                            double t2 = timeWeights.get(i + 1)  * 100 / percent;
+                            double v1 = valueWeights.get(i) * 100  / alpha;
+                            double v2 = valueWeights.get(i + 1) * 100  / alpha;
+                            double AB = Math.sqrt(t1 * t1 + v1 * v1);
+                            double BC = Math.sqrt(t2 * t2 + v2 * v2);
+                            double w = (AB + BC);
+                            if(Double.isNaN(w)) w = 0;
+                            maxWeight = Math.max(w, maxWeight);
+                            weights.add(w);
+                        }
+                    }
+                    weights.add(0.0);
+
+                    for (int i = 0; i < weights.size(); i++) {
+//                        if (weights.get(i) > 0) weights.set(i, weights.get(i) * 100 / maxWeight);
+                        dataPoints.get(i).put("weight", weights.get(i));
                     }
                 }
-                weights.add(0.0);
-
-                for (int i = 0; i < weights.size(); i++) {
-                    if (weights.get(i) > 0) weights.set(i, weights.get(i) * 100 / maxWeight);
-                    dataPoints.get(i).put("weight", weights.get(i));
+                else{
+                    weights = new ArrayList<>();
+                    for(Map<String, Object> dataPoint : dataPoints){
+                        weights.add((double)dataPoint.get(weightLabel));
+                        dataPoint.put("weight", dataPoint.get(weightLabel));
+                    }
                 }
 
                 System.out.println(dataPoints.size());
@@ -714,6 +714,8 @@ public class LayerThread extends Thread{
                 buckets.add(b);
             }
 
+            System.out.println("buckets size:" + buckets.size());
+
             // 桶内采样
             int count = 0;
             {
@@ -754,7 +756,7 @@ public class LayerThread extends Thread{
             System.out.println(dataPoints.size());
             System.out.println(sampleDataPoints.size());
 
-            // 删除上次的最后一桶
+            // 删除上次的最后一桶内的样本
             deletesql = String.format("delete from %s where time>='%s'", tableName, latestTime);
             System.out.println(deletesql);
             pgtool.queryUpdate(connection, deletesql);
@@ -764,7 +766,7 @@ public class LayerThread extends Thread{
             ErrorController.lineError(dataPoints, sampleDataPoints, label, level == 0);
             sqls = new LinkedList<>();
             for(Map<String, Object> map : sampleDataPoints){
-                sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString().substring(0,19), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
+                sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString(), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
             }
             sb = new StringBuilder();
             for(String sql : sqls) {
@@ -780,9 +782,9 @@ public class LayerThread extends Thread{
 
             // 统计throughput
             throughput += dataPoints.size();
-            usedtime = System.currentTimeMillis() - setuptime;
-            throughtime = System.currentTimeMillis() - sts + 1L;
-            System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, dataPoints.size() * 1000 / throughtime));
+            long usedtime = System.currentTimeMillis() - setuptime;
+            long roundtime = System.currentTimeMillis() - roundStartTime + 1L;
+            System.out.println(String.format("throughput:%d, used time: %d, average:%d", throughput, usedtime, dataPoints.size() * 1000 / roundtime));
 
             // 根据throughput触发下一层级
             if(!hadKickOff && throughput > kickOffThreshold){
@@ -791,46 +793,9 @@ public class LayerThread extends Thread{
                 String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
                 System.out.println("kick off the level " + (level +1) + "<<<<<<!!!!!!!");
                 System.out.println(newSubId);
-                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", percent * ratio * ratio, alpha * ratio * ratio, batchlimit, newLock, newCondition, sampleQueue, bucketSum);
+                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", percent * ratio, alpha, batchlimit, sampleQueue, bucketSum * ratio / 2);
                 pgsubscribeThread.start();
             }
-
-//            if(throughput > kickOffThreshold){
-//                if(hadKickOff){
-//                    newLock.lock();
-//                    System.out.println("signal the " + (level + 1) + "level to continue;");
-//                    newCondition.signal();
-//                    newLock.unlock();
-//                }
-//                else {
-//                    hadKickOff = true;
-//                    String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
-//                    String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
-//                    System.out.println("kick off the level " + (level +1) + "<<<<<<!!!!!!!");
-//                    System.out.println(newSubId);
-//                    LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", percent, alpha, batchlimit, newLock, newCondition, sampleQueue);
-//                    pgsubscribeThread.start();
-//                }
-//                throughput = 0;
-//            }
-
-//            if(dataPoints.size() < patchLimit) {
-//                if(level > 0){
-//                    try {
-//                        lock.lock();
-//                        System.out.println("lock the level" + level + " <<<<<<<<<<<<<!!!!!!!!");
-//                        lockCondition.await();
-//                        System.out.println("signaled the level" + level + " <<<<<<<<<<<<<!!!!!!!!");
-//                        lock.unlock();
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-//                }
-//                else {
-//                    exit = true;
-//                    System.out.println("L0 catched up <<<<<<<<<<<<<<<!!!!!!!!!!!!!!");
-//                }
-//            }
 
             if(exit) {
                 try {
@@ -840,21 +805,23 @@ public class LayerThread extends Thread{
                 }
             }
 
-            // 单独处理最新桶
-            newcomingData = buckets.get(buckets.size()-1).getDataPoints();
-            // 如果时间戳没有变化，或者追上截止日期则停止
+            // 单独处理最新桶，获得latestTime
+            List<Map<String, Object>> newcomingData = buckets.get(buckets.size() - 1).getDataPoints();
+            latestTime = newcomingData.get(0).get("time").toString();
+
+            // 采样终止条件：latestTime大于截止日期
             if(endtime != null && latestTime.compareTo(endtime) >= 0){
                 exit = true;
-                System.out.println("L0 catched up <<<<<<<<<<<<<<<!!!!!!!!!!!!!!");
+                System.out.println("L" + level + " catched up <<<<<<<<<<<<<<<!!!!!!!!!!!!!!");
             }
-            else latestTime = newcomingData.get(0).get("time").toString().substring(0,19);
 
             System.out.println("buckets.size():" + buckets.size());
             System.out.println(String.format("L%d data size: %s, sample size: %s, ratio: %s", level, dataPoints.size(), sampleDataPoints.size(), dataPoints.size() / sampleDataPoints.size()));
 
             // 生命在于留白
             try {
-                Thread.sleep(100);
+                long interval = 300L;
+                Thread.sleep(interval);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

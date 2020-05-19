@@ -146,21 +146,12 @@ public class ErrorController {
                 }
 
                 weight += (Double)data.get(j).get("weight");
+//                System.out.println(data.get(j).get("time").toString());
+//                System.out.println(weight);
 
                 // 线性插值
                 double dy0 = (x0 - a0) * (b1 - b0) / (a1 - a0) + b0 - y0;
                 double dy1 = (x1 - a0) * (b1 - b0) / (a1 - a0) + b0 - y1;
-
-//                System.out.println("a0: " + a0);
-//                System.out.println("b0: " + b0);
-//                System.out.println("a1: " + a1);
-//                System.out.println("b1: " + b1);
-//                System.out.println("x0: " + x0);
-//                System.out.println("x1: " + x1);
-//                System.out.println("y0: " + y0);
-//                System.out.println("y1: " + y1);
-//                System.out.println("dy0: " + dy0);
-//                System.out.println("dy1: " + dy1);
 
                 boolean isCross = (dy0 >= 0) != (dy1 >= 0);
 
@@ -179,13 +170,14 @@ public class ErrorController {
 
 //            System.out.println("error" + error);
 //            System.out.println("area" + area);
+//            System.out.println("weight" + weight);
 
             if(Double.isNaN(error)) error = 0.0;
             if(Double.isNaN(area)) area = 0.0;
 
             sample.get(i).put("error", error);
             sample.get(i).put("area", area);
-            sample.get(i).put("weight", area);
+            sample.get(i).put("weight", weight);
         }
 
 //        System.out.println("the time stamp comparasion:");

@@ -126,10 +126,7 @@ public class LayerController {
 
         System.out.println(TYPE);
 
-        Lock lock = new ReentrantLock();
-        Condition newCondition = lock.newCondition();
-
-        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, starttime, endtime, TYPE, ratio, subId, 0, sample, dbtype, percent, alpha, batchlimit, lock, newCondition, null, null);
+        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, starttime, endtime, TYPE, ratio, subId, 0, sample, dbtype, percent, alpha, batchlimit,null, null);
         subscribeThread.start();
 
         return subId;

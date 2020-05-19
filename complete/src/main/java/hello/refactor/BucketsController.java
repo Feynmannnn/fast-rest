@@ -134,9 +134,161 @@ public class BucketsController {
         return buckets;
     }
 
-    static List<Bucket> _buckets(List<Map<String, Object>> dataPoints, String timelabel, String label, Integer amount, Double percent, Double alpha){
+    static long _bucketSum(List<Map<String, Object>> dataPoints, String timelabel, String label, Integer amount, Double percent, Double alpha){
         for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
 
+        List<Double> weights = new ArrayList<>();
+        List<Double> timeWeights = new ArrayList<>();
+        List<Double> valueWeights = new ArrayList<>();
+        List<Double> grads = new ArrayList<>();
+        List<Bucket> res = new LinkedList<>();
+
+        Long firstts = (Timestamp.valueOf(dataPoints.get(0).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+        Long lastts = (Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+        Long timestampRange = lastts - firstts;
+
+        long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
+        for(Map<String, Object> point : dataPoints){
+            Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
+            Double weight = (t.getTime() - lastTimestamp) + 0.0;
+            timeWeights.add(weight);
+            lastTimestamp = t.getTime();
+        }
+
+        System.out.println("percent" + percent);
+
+        Object lastValue = dataPoints.get(0).get(label);
+        Double maxValue, minValue;
+        if(lastValue instanceof Double) {
+            maxValue = ((Double) lastValue);
+            minValue = ((Double) lastValue);
+        }
+        else if(lastValue instanceof Long) {
+            maxValue = (((Long) lastValue).doubleValue());
+            minValue = (((Long) lastValue).doubleValue());
+        }
+        else if(lastValue instanceof Integer) {
+            maxValue = (((Integer) lastValue).doubleValue());
+            minValue = (((Integer) lastValue).doubleValue());
+        }
+        else {
+            maxValue = ((Double) lastValue);
+            minValue = ((Double) lastValue);
+        }
+
+        for(Map<String, Object> point : dataPoints){
+            Object value = point.get(label);
+            double v;
+            if(value instanceof Double) {
+                v = ((Double) value - (Double) lastValue);
+                maxValue = Math.max(maxValue, (Double) value);
+                minValue = Math.min(minValue, (Double) value);
+            }
+            else if(value instanceof Long) {
+                v = (((Long) value).doubleValue() - ((Long) lastValue).doubleValue());
+                maxValue = Math.max(maxValue, ((Long) value).doubleValue());
+                minValue = Math.min(minValue, ((Long) value).doubleValue());
+            }
+            else if(value instanceof Integer) {
+                v = (((Integer) value).doubleValue() - ((Integer) lastValue).doubleValue());
+                maxValue = Math.max(maxValue, ((Integer) value).doubleValue());
+                minValue = Math.min(minValue, ((Integer) value).doubleValue());
+            }
+            else {
+                System.out.println("label" + label);
+                v = ((Double) value - (Double) lastValue);
+                maxValue = Math.max(maxValue, (Double) value);
+                minValue = Math.min(minValue, (Double) value);
+            }
+            double valueWeight = (v);
+            valueWeights.add(valueWeight);
+            lastValue = value;
+        }
+        double valueRange = maxValue - minValue;
+
+        boolean percentIsNull = percent == null;
+        boolean alphaIsNull = alpha == null;
+
+        if(percentIsNull){
+            int timeOutlierNum = OutlierDetection.zscoreOutlierNum(timeWeights, 3);
+            Double[] timeWeightStat = timeWeights.toArray(new Double[0]);
+            Arrays.sort(timeWeightStat);
+            percent = timeWeightStat[timeWeights.size() - timeOutlierNum - 1];
+            if(percent <= 0) percent = 1.0;
+        }
+
+        if(alphaIsNull){
+            int valueOutlierNum = OutlierDetection.zscoreOutlierNum(valueWeights, 3);
+            Double[] valueWeightStat = valueWeights.toArray(new Double[0]);
+            Arrays.sort(valueWeightStat);
+            alpha = valueWeightStat[valueWeights.size() - valueOutlierNum - 1];
+            if(alpha <= 0) alpha = 1.0;
+        }
+
+        double grad = 0.0;
+        for(int i = 1; i < dataPoints.size(); i++){
+            if(timeWeights.get(i) >= percent || valueWeights.get(i) >= alpha) grad = Double.POSITIVE_INFINITY;
+            else grad = Math.atan(valueWeights.get(i) / timeWeights.get(i));
+            grads.add(grad);
+        }
+        grads.add(grad);
+
+        Double maxWeight = 0.0;
+        weights.add(0.0);
+        for(int i = 1; i < dataPoints.size()-1; i++) {
+            if(Double.isInfinite(grads.get(i)) || Double.isInfinite(grads.get(i-1))){
+                weights.add(-1.0);
+            }
+            else{
+                double t1 = timeWeights.get(i) * 100 / percent;
+                double t2 = timeWeights.get(i + 1) * 100 / percent;
+                double v1 = valueWeights.get(i) * 100 / alpha;
+                double v2 = valueWeights.get(i + 1) * 100 / alpha;
+                double AB = Math.sqrt(t1 * t1 + v1 * v1);
+                double BC = Math.sqrt(t2 * t2 + v2 * v2);
+                double w = (AB + BC);
+                if(Double.isNaN(w)) w = 0;
+                maxWeight = Math.max(w, maxWeight);
+                weights.add(w);
+            }
+        }
+        weights.add(0.0);
+
+        for (int i = 0; i < weights.size(); i++){
+            if(weights.get(i) > 0) weights.set(i, weights.get(i) * 100 / maxWeight);
+            dataPoints.get(i).put("weight", weights.get(i));
+        }
+
+        System.out.println(dataPoints.size());
+        System.out.println(weights.size());
+
+        // 二分查找
+        int n = amount == null ? 1000 : amount / 4;
+        long lo = 0, hi = weights.size() * 100;
+        while (lo < hi){
+            long mid = lo + (hi - lo >> 1);
+            int count = 0;
+            double sum = 0;
+            for (double weight : weights) {
+                if(weight < 0){
+                    if(sum > 0) count++;
+                    sum = 0;
+                }
+                else if (sum + weight > mid) {
+                    sum = weight;
+                    if (++count > n) break;
+                }
+                else sum += weight;
+            }
+            count++;
+            if(count >= n) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;
+    }
+
+    static List<Bucket> _buckets(List<Map<String, Object>> dataPoints, String timelabel, String label, Integer amount, Double percent, Double alpha){
+        for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
 
         List<Double> weights = new ArrayList<>();
         List<Double> timeWeights = new ArrayList<>();
