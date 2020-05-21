@@ -4,6 +4,8 @@ import com.alibaba.fastjson.JSONObject;
 import hello.ErrorController;
 import hello.refactor.obj.Bucket;
 import hello.refactor.source.PGConnection;
+import hello.refactor.util.ESD;
+import hello.refactor.util.LocalOutlierFactor;
 import hello.refactor.util.OutlierDetection;
 import org.springframework.util.DigestUtils;
 
@@ -218,14 +220,15 @@ public class LayerThread extends Thread{
         List<Double> weights = new ArrayList<>();
         List<Double> timeWeights = new ArrayList<>();
         List<Double> valueWeights = new ArrayList<>();
+        List<Double> values = new ArrayList<>();
         List<Double> grads = new ArrayList<>();
         List<Bucket> buckets = new LinkedList<>();
 //        long maxTimeWeight = 0;
 //        Double valueSum = 0.0;
 //        double maxValueWeight = 0.0;
 
-        boolean percentIsNull = true;
-        boolean alphaIsNull = true;
+        boolean percentIsNull = percent == null;
+        boolean alphaIsNull = alpha == null;
         System.out.println("level " + level);
         System.out.println(percentIsNull);
         System.out.println(alphaIsNull);
@@ -261,6 +264,7 @@ public class LayerThread extends Thread{
 
             for (Map<String, Object> point : dataPoints) {
                 Object value = point.get(label);
+                values.add((Double)value);
                 double v;
                 if (value instanceof Double) {
                     v = ((Double) value - (Double) lastValue);
@@ -288,28 +292,48 @@ public class LayerThread extends Thread{
 
             if(percentIsNull){
                 int timeOutlierNum = OutlierDetection.zscoreOutlierNum(timeWeights, 3);
+//                int timeOutlierNum = ESD.ESDOutlier(timeWeights, (int) (batchlimit / 100));
+
+//                ArrayList<double[]> data = new ArrayList<double[]>();
+//                for(double w : timeWeights) data.add(new double[]{w});
+//                LocalOutlierFactor model = new LocalOutlierFactor(data);
+//                double[] lof = model.getTrainingScores(5);
+//                int timeOutlierNum = 0;
+//                for(double s : lof) if(s > 1) timeOutlierNum++;
+
                 System.out.println("timeOutlierNum" + timeOutlierNum);
                 Double[] timeWeightStat = timeWeights.toArray(new Double[0]);
                 Arrays.sort(timeWeightStat);
-                percent = timeWeightStat[timeWeights.size() - (timeOutlierNum > 0 ? timeOutlierNum : 1)];
-                if(percent <= 0) percent = timeWeightStat[timeWeights.size() * 9999 / 10000];
+                percent = 3 * OutlierDetection.getStdDev(timeWeights);
+                System.out.println("percent" + percent);
+                if(percent <= 0) percent = timeWeightStat[99995];
             }
 
             if(alphaIsNull){
-                int valueOutlierNum = OutlierDetection.zscoreOutlierNum(valueWeights, 3);
+                int valueOutlierNum = OutlierDetection.zscoreOutlierNum(values, 3);
+//                int valueOutlierNum = ESD.ESDOutlier(valueWeights, (int) (batchlimit / 100));
+
+//                ArrayList<double[]> data = new ArrayList<double[]>();
+//                for(double w : valueWeights) data.add(new double[]{w});
+//                LocalOutlierFactor model = new LocalOutlierFactor(data);
+//                double[] lof = model.getTrainingScores(5);
+//                int valueOutlierNum = 0;
+//                for(double s : lof) if(s > 1) valueOutlierNum++;
+
                 System.out.println("valueOutlierNum" + valueOutlierNum);
                 Double[] valueWeightStat = valueWeights.toArray(new Double[0]);
                 Arrays.sort(valueWeightStat);
-                alpha = valueWeightStat[valueWeights.size() - (valueOutlierNum > 0 ? valueOutlierNum : 1)];
-                if(alpha <= 0) alpha = valueWeightStat[valueWeights.size() * 9999 / 10000];
+                alpha = 3 * OutlierDetection.getStdDev(values);
+                System.out.println("alpha" + alpha);
+                if(alpha <= 0) alpha = valueWeightStat[99995];
             }
 
-            System.out.println(percent);
-            System.out.println(alpha);
+            System.out.println("percent" + percent);
+            System.out.println("alpha" + alpha);
 
             double grad = 0.0;
             for (int i = 1; i < dataPoints.size(); i++) {
-                System.out.println(timeWeights.get(i) + "," + valueWeights.get(i));
+//                System.out.println(timeWeights.get(i) + "," + valueWeights.get(i));
                 if (timeWeights.get(i) > percent || valueWeights.get(i) > alpha) grad = Double.POSITIVE_INFINITY;
                 else grad = Math.atan(valueWeights.get(i) / timeWeights.get(i));
                 grads.add(grad);
@@ -506,7 +530,11 @@ public class LayerThread extends Thread{
 
             if (level > 0) {
                 while (true){
-                    if(dataQueue.size() >= kickOffSampling){
+                    double queueWeight = 0.0;
+                    dataPoints = new ArrayList<>(dataQueue);
+                    for(Map<String, Object> p : dataPoints) queueWeight += (Double)p.get("weight");
+
+                    if(queueWeight >= bucketSum){
                         break;
                     }
                     else {

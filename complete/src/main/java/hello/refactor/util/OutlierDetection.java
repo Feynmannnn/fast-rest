@@ -36,7 +36,9 @@ public class OutlierDetection {
 
     public static int zscoreOutlierNum(List<Double> values, float scaleOfElimination){
         double mean = getMean(values);
+        System.out.println("mean" + mean);
         double stdDev = getStdDev(values);
+        System.out.println("stdDev" + stdDev);
 
         int res = 0;
 

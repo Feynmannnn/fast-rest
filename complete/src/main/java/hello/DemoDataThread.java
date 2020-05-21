@@ -107,6 +107,7 @@ public class DemoDataThread extends Thread {
 
             for(int i = 0; i < 10; i++){
                 long batchStartTime = System.currentTimeMillis();
+                time = batchStartTime;
                 for(int j = 0; j < batchSize; j++){
                     // add one insert sql
                     Map<String, Object> p = datapoints.get(index);

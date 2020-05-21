@@ -12,10 +12,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 public class QueryController {
@@ -25,6 +22,8 @@ public class QueryController {
     @RequestMapping("/query")
     public List<Map<String, Object>> publish(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
+            @RequestParam(value="username", defaultValue = "root") String username,
+            @RequestParam(value="password", defaultValue = "root") String password,
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
             @RequestParam(value="columns") String columns,
@@ -37,6 +36,8 @@ public class QueryController {
             @RequestParam(value="format", defaultValue = "map") String format
     ) throws SQLException {
         url = url.replace("\"", "");
+        username = username.replace("\"", "");
+        password = password.replace("\"", "");
         database = database.replace("\"", "");
         timeseries = timeseries.replace("\"", "");
         columns = columns.replace("\"", "");
@@ -78,7 +79,6 @@ public class QueryController {
         }
 
         JSONObject jsonObject = JSONObject.parseObject(config);
-        String autovisURL = jsonObject.getString("autovisURL");
         String innerUrl = jsonObject.getString("innerURL");
         String innerUserName = jsonObject.getString("innerusername");
         String innerPassword = jsonObject.getString("innerpassword");
@@ -86,16 +86,28 @@ public class QueryController {
         // iotdb is . tsdb is _
         String[] tables = subTables(url, innerUrl, innerUserName, innerPassword, database, timeseries, columns);
 
+        boolean hit = false;
+
         List<Map<String, Object>> res = null;
         for (String tableName : tables) {
             System.out.println(tableName);
-            res = DataController._dataPoints(
-                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns, starttime, endtime, null, null, "map", null, null, "pg");
+            if(!hit){
+                res = new ArrayList<>(DataController._dataPoints(
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", starttime, endtime, null, null, "map", null, null, "pg"));
+            }
+            else{
+                res.addAll(DataController._dataPoints(
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns, starttime, endtime, null, null, "map", null, null, "pg"));
+            }
+            System.out.println("res.size()" + res.size());
             System.out.println(tableName);
             if (res.size() >= amount) {
-                break;
+                hit = true;
+                starttime = res.get(res.size() - 1).get("time").toString();
             }
         }
+
+        if(!hit) res = DataController._dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, null, null, format, ip, port, dbtype);
 
         System.out.println("publish used time:" + (System.currentTimeMillis() - t));
         if(format.equals("map")) return res;
@@ -182,13 +194,21 @@ public class QueryController {
 
         // iotdb is . tsdb is _
         String[] tables = subTables(url, innerUrl, innerUserName, innerPassword, database, timeseries, columns);
+        boolean hit = false;
 
         List<Map<String, Object>> res = null;
         for(String tableName : tables){
             System.out.println(tableName);
-            res = DataController._dataPoints(
-                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", error, area", starttime, endtime, null, null, "map", null, null, "pg");
+            if(!hit){
+                res = new ArrayList<>(DataController._dataPoints(
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", starttime, endtime, null, null, "map", null, null, "pg"));
+            }
+            else {
+                res.addAll(DataController._dataPoints(
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", starttime, endtime, null, null, "map", null, null, "pg"));
+            }
             System.out.println(tableName);
+            System.out.println("res.size()" + res.size());
 
             double error= 0.0;
             double area = 0.0;
@@ -199,8 +219,15 @@ public class QueryController {
             }
 
             System.out.println(error / area);
-            if((error / area) <= percent) break;
+            if((error / area) <= percent) {
+                hit = true;
+            }
+
+            if(hit) starttime = res.get(res.size() - 1).get("time").toString();
         }
+
+        // 找不到合适的样本，查询原始数据
+        if(!hit) res = DataController._dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, null, null, format, ip, port, dbtype);
 
         System.out.println("publish used time:" + (System.currentTimeMillis() - t));
         return res;
@@ -221,6 +248,7 @@ public class QueryController {
                 String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
                 String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
                 tableName = "L" + i + "_M" + newSubId;
+                System.out.println(tableName);
                 res[n-1-i] = tableName;
             }
             return res;
