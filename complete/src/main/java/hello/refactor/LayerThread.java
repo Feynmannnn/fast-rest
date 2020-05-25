@@ -304,7 +304,7 @@ public class LayerThread extends Thread{
                 System.out.println("timeOutlierNum" + timeOutlierNum);
                 Double[] timeWeightStat = timeWeights.toArray(new Double[0]);
                 Arrays.sort(timeWeightStat);
-                percent = 3 * OutlierDetection.getStdDev(timeWeights);
+                percent = OutlierDetection.getMean(timeWeights) + 3 * OutlierDetection.getStdDev(timeWeights);
                 System.out.println("percent" + percent);
                 if(percent <= 0) percent = timeWeightStat[99995];
             }
@@ -499,7 +499,8 @@ public class LayerThread extends Thread{
         sqls = new LinkedList<>();
         for(Map<String, Object> map : sampleDataPoints){
             sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString(), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
-        }
+            System.out.println("level" + level + "sample:"+Timestamp.valueOf(map.get("time").toString())+" inserttime:"+System.currentTimeMillis());
+            }
         sb = new StringBuilder();
         for(String sql : sqls) {
             if(sql.toLowerCase().contains("nan")) System.out.println(sql);
@@ -593,6 +594,15 @@ public class LayerThread extends Thread{
             for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
 
             dataPoints.sort(sampleComparator);
+
+            if(dataPoints == null || dataPoints.size() == 0){
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                continue;
+            }
 
             // calc weights
             {
@@ -795,6 +805,7 @@ public class LayerThread extends Thread{
             sqls = new LinkedList<>();
             for(Map<String, Object> map : sampleDataPoints){
                 sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString(), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
+                System.out.println("level" + level + "sample:"+Timestamp.valueOf(map.get("time").toString())+" inserttime:"+System.currentTimeMillis());
             }
             sb = new StringBuilder();
             for(String sql : sqls) {

@@ -50,10 +50,10 @@ public class SimpleProvider {
         properties.put("batch.size", 16384);
         properties.put("linger.ms", 1);
         properties.put("buffer.memory", 33554432);
-        properties.put("key.serializer", "org.apache.kafka.common.serialization.LongSerializer");
-        properties.put("value.serializer", "org.apache.kafka.common.serialization.IntegerSerializer");
+        properties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        properties.put("value.serializer", "org.apache.kafka.common.serialization.DoubleSerializer");
 
-        String topic = "mxw2";
+        String topic = "1701";
         long key;
 
         Random random = new Random();

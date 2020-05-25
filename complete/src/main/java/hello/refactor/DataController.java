@@ -5,6 +5,8 @@ import hello.refactor.source.IoTDBConnection;
 import hello.refactor.source.PGConnection;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.*;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -47,6 +49,7 @@ public class DataController {
             @RequestParam(value="format", defaultValue = "map") String format,
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
+            @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
     ) throws SQLException {
         // trim the '"' of the parameters
@@ -234,24 +237,32 @@ public class DataController {
             System.out.println("used time: " + (System.currentTimeMillis() - stime) + "ms");
         }
         else if(dbtype.equals("kafka")){
-            System.out.println(dbtype);
+
+            System.out.println(url);
+            System.out.println(timeseries);
+            System.out.println(columns);
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+
             Properties props = new Properties();
-            props.put("bootstrap.servers", "192.168.10.172:9093");
-            props.put("group.id", "test");
+            props.put("bootstrap.servers", url);
+            props.put("group.id", "fast");
             props.put("enable.auto.commit", "true");
             props.put("auto.commit.interval.ms", "1000");
             props.put("key.deserializer", "org.apache.kafka.common.serialization.LongDeserializer");
-            props.put("value.deserializer", "org.apache.kafka.common.serialization.IntegerDeserializer");
+            props.put("value.deserializer", "org.apache.kafka.common.serialization.DoubleDeserializer");
             props.put("auto.offset.reset","earliest");
+            props.put("max.poll.records", "10000");
 
-            KafkaConsumer<Long, Integer> consumer = new KafkaConsumer<>(props);
-            consumer.subscribe(Arrays.asList(database));
-            ConsumerRecords<Long, Integer> records = consumer.poll(1000);
+            KafkaConsumer<Long, Double> consumer = new KafkaConsumer<>(props);
+            consumer.subscribe(Arrays.asList(timeseries));
+            ConsumerRecords<Long, Double> records = consumer.poll(Duration.ofMillis(100));
             System.out.println(records.count());
-            for (ConsumerRecord<Long, Integer> record : records) {
+            for (ConsumerRecord<Long, Double> record : records) {
                 Map<String, Object> map = new HashMap<>();
-                map.put("time", record.key());
-                map.put("value", record.value());
+                map.put("timestamp", record.key());
+                map.put("time", sdf.format(record.key()).substring(0,23));
+                map.put(columns.toLowerCase(), record.value());
                 res.add(map);
             }
             consumer.close();
@@ -260,6 +271,12 @@ public class DataController {
             return res;
 
         Collections.sort(res, sampleComparator);
+
+        if(res.size() > 0){
+            System.out.println(res.get(0).get("time"));
+            System.out.println(res.get(0).get("timestamp"));
+        }
+
 
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();

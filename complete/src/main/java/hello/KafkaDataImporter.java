@@ -5,16 +5,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-public class DemoDataImporter {
+public class KafkaDataImporter {
 
-    @RequestMapping("/demo")
+    @RequestMapping("/kafkadata")
     public String demo(
             @RequestParam(value="database") String database
     ){
         database = database.replace("\"", "");
-        DemoDataThread demoDataThread = new DemoDataThread(database);
+        KafkaDataThread demoDataThread = new KafkaDataThread(database);
         demoDataThread.start();
 
-        return "demo data started";
+        return "kafka data started";
     }
 }
