@@ -5,7 +5,10 @@ import hello.refactor.obj.BucketDataPoint;
 
 import java.util.*;
 
-public class Outlier implements Operator {
+/**
+* 离群值采样算子，迭代寻找每个桶内的离群点
+*/
+public class Outlier implements SamplingOperator {
 
     public static Comparator<BucketDataPoint> bucketComparator = new Comparator<BucketDataPoint>(){
         @Override
@@ -15,10 +18,9 @@ public class Outlier implements Operator {
     };
 
     @Override
-    public List<Map<String, Object>> sample(List<Bucket> buckets, String timelabel, String label, String format) {
+    public List<Map<String, Object>> sample(List<Bucket> buckets, String timelabel, String label) {
         List<Map<String, Object>> res = new LinkedList<Map<String, Object>>();
-        long st = System.currentTimeMillis();
-        System.out.println("gradsample started");
+
         for(Bucket bucket : buckets){
             int theta = bucket.getDataPoints().size() / 4;
             int k = 4;
@@ -31,8 +33,6 @@ public class Outlier implements Operator {
             Set<Map<String, Object>> candi = new HashSet<>();
             Set<Integer> ids = new HashSet<>();
             Queue<BucketDataPoint> H = new PriorityQueue<>(datapoints.size(), bucketComparator);
-            Queue<Integer> maxWeight = new LinkedList<>();
-            Queue<Integer> minWeight = new LinkedList<>();
             for(int i = 0; i < datapoints.size(); i++){
 
                 Map<String, Object> data = datapoints.get(i);
@@ -84,23 +84,7 @@ public class Outlier implements Operator {
             }
             res.addAll(candi);
         }
-        System.out.println("gradsample used time: " + (System.currentTimeMillis() - st) + "ms");
-        if(format.equals("map")) return res;
 
-        timelabel = "time";
-        List<Map<String, Object>> result = new LinkedList<>();
-        for(Map<String, Object> map : res){
-            Object time = map.get(timelabel);
-            for(Map.Entry<String, Object> entry : map.entrySet()){
-                String mapKey = entry.getKey();
-                if(mapKey.equals(timelabel)) continue;
-                Map<String, Object> m = new HashMap<>();
-                m.put("time", time);
-                m.put("label", mapKey);
-                m.put("value", entry.getValue());
-                result.add(m);
-            }
-        }
-        return result;
+        return res;
     }
 }

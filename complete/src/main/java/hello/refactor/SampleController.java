@@ -79,58 +79,17 @@ public class SampleController {
             BucketsController._intervals(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, amount, dbtype) :
             BucketsController._buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, percent, alpha);
 
-        Operator operator;
+        SamplingOperator samplingOperator;
 
-        if(sample.contains("agg")) operator = new Aggregation();
-        else if(sample.contains("sample")) operator = new Sample();
-        else if(sample.contains("outlier")) operator = new Outlier();
-        else operator = new M4();
+        if(sample.contains("agg")) samplingOperator = new Aggregation();
+        else if(sample.contains("sample")) samplingOperator = new Sample();
+        else if(sample.contains("outlier")) samplingOperator = new Outlier();
+        else samplingOperator = new M4();
 
         String iotdbLabel = database + "." + timeseries + "." +columns;
         String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
         String timelabel = "time";
 
-        return operator.sample(buckets, timelabel, label, format);
-    }
-
-    static List<Map<String, Object>> _layerDatapoints(
-            String url,
-            String username,
-            String password,
-            String database,
-            String timeseries,
-            String columns,
-            String starttime,
-            String endtime,
-            String conditions,
-            String query,
-            String format,
-            String sample,
-            String ip,
-            String port,
-            Integer ratio,
-            String dbtype,
-            Double percent,
-            Double alpha) throws SQLException {
-
-        List<Map<String, Object>> linkedDataPoints = DataController._dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, dbtype);
-        if(linkedDataPoints.size() < 2) return null;
-
-        List<Map<String, Object>> dataPoints = new ArrayList<>(linkedDataPoints);
-        String iotdbLabel = database + "." + timeseries + "." +columns;
-        String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
-        String timelabel = "time";
-
-        Integer amount = dataPoints.size() / ratio;
-        List<Bucket> buckets = BucketsController._buckets(dataPoints, timelabel, label, amount, percent, alpha);
-
-        Operator operator;
-
-        if(sample.contains("agg")) operator = new Aggregation();
-        else if(sample.contains("sample")) operator = new Sample();
-        else if(sample.contains("outlier")) operator = new Outlier();
-        else operator = new M4();
-
-        return operator.sample(buckets, timelabel, label, format);
+        return samplingOperator.sample(buckets, timelabel, label);
     }
 }

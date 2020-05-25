@@ -4,12 +4,13 @@ import hello.refactor.obj.Bucket;
 
 import java.util.*;
 
-public class Sample implements Operator {
+/**
+* 随机采样算子，随机排序后获取前k个数据
+*/
+public class Sample implements SamplingOperator {
     @Override
-    public List<Map<String, Object>> sample(List<Bucket> buckets, String timelabel, String label, String format) {
+    public List<Map<String, Object>> sample(List<Bucket> buckets, String timelabel, String label) {
         List<Map<String, Object>> res = new LinkedList<>();
-        long st = System.currentTimeMillis();
-        System.out.println("bucketsample started");
 
         for(Bucket bucket : buckets){
             List<Map<String, Object>> datapoints = bucket.getDataPoints();
@@ -21,21 +22,6 @@ public class Sample implements Operator {
             res.addAll(datapoints.subList(0, 4));
         }
 
-        if(format.equals("map")) return res;
-
-        List<Map<String, Object>> result = new LinkedList<>();
-        for(Map<String, Object> map : res){
-            Object time = map.get(timelabel);
-            for(Map.Entry<String, Object> entry : map.entrySet()){
-                String mapKey = entry.getKey();
-                if(mapKey.equals(timelabel)) continue;
-                Map<String, Object> m = new HashMap<>();
-                m.put("time", time);
-                m.put("label", mapKey);
-                m.put("value", entry.getValue());
-                result.add(m);
-            }
-        }
-        return result;
+        return res;
     }
 }

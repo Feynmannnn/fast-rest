@@ -6,13 +6,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-public class M4 implements Operator  {
+/**
+* M4采样算子，提取每个桶内的四个极值点
+*/
+public class M4 implements SamplingOperator {
     @Override
-    public List<Map<String, Object>> sample(List<Bucket> buckets, String timelabel, String label, String format) {
+    public List<Map<String, Object>> sample(List<Bucket> buckets, String timelabel, String label) {
         List<Map<String, Object>> res = new LinkedList<>();
-
-        long st = System.currentTimeMillis();
-        System.out.println("m4sample started");
 
         for(Bucket bucket : buckets){
             List<Map<String, Object>> datapoints = bucket.getDataPoints();
@@ -41,7 +41,6 @@ public class M4 implements Operator  {
             res.add(mini);
             res.add(datapoints.get(datapoints.size()-1));
         }
-        System.out.println("m4sample used time: " + (System.currentTimeMillis() - st) + "ms");
 
         return res;
     }
