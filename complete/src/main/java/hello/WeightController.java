@@ -9,7 +9,7 @@ import java.util.*;
 @RestController
 public class WeightController {
     @RequestMapping("/weights")
-    public List<Map<String, Object>> buckets(
+    public List<Map<String, Object>> weights(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
             @RequestParam(value="username", defaultValue = "root") String username,
             @RequestParam(value="password", defaultValue = "root") String password,
@@ -188,7 +188,6 @@ public class WeightController {
             if(count >= n) lo = mid + 1;
             else hi = mid;
         }
-        System.out.println("divided used " + (System.currentTimeMillis() - time) + "ms");
         long bucketSum = lo;
         System.out.println("bucketSum" + bucketSum);
         double sum = 0;

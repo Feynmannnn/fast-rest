@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-
+/**
+* 数据控制器，根据参数查询原始数据
+*/
 @RestController
 public class DataController {
 
@@ -85,7 +87,6 @@ public class DataController {
     ) throws SQLException {
 
         List<Map<String, Object>> res = new LinkedList<>();
-
         System.out.println(dbtype);
 
         if(dbtype.toLowerCase().equals("iotdb")){
@@ -96,7 +97,6 @@ public class DataController {
                 System.out.println("get connection defeat");
                 return res;
             }
-            long stime = System.currentTimeMillis();
             Statement statement = connection.createStatement();
             String sql = query != null ? query :
                     "SELECT " + columns +
@@ -106,7 +106,6 @@ public class DataController {
                     (conditions == null ? "" : conditions);
             System.out.println(sql);
             ResultSet resultSet = statement.executeQuery(sql);
-            System.out.println("exec used time: " + (System.currentTimeMillis() - stime) + "ms");
 
             if (resultSet != null) {
                 final ResultSetMetaData metaData = resultSet.getMetaData();
@@ -140,7 +139,6 @@ public class DataController {
             }
             statement.close();
             connection.close();
-            System.out.println("used time: " + (System.currentTimeMillis() - stime) + "ms");
         }
         else if(dbtype.toLowerCase().equals("pg")){
             if(ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
@@ -159,10 +157,6 @@ public class DataController {
                     (conditions == null ? "" : " " + conditions);
             System.out.println(sql);
             ResultSet resultSet = pgtool.query(connection, sql);
-
-            long stime = System.currentTimeMillis();
-
-            System.out.println("exec used time: " + (System.currentTimeMillis() - stime) + "ms");
 
             if (resultSet != null) {
                 final ResultSetMetaData metaData = resultSet.getMetaData();
@@ -196,7 +190,6 @@ public class DataController {
                 }
             }
             connection.close();
-            System.out.println("used time: " + (System.currentTimeMillis() - stime) + "ms");
         }
         else if(dbtype.toLowerCase().equals("influxdb")){
             if(ip != null && port != null) url = String.format("http://%s:%s/", ip, port);
@@ -210,9 +203,6 @@ public class DataController {
                     (conditions == null ? "" : conditions);
             System.out.println(sql);
             QueryResult queryResult = influxDBConnection.query(sql);
-
-            long stime = System.currentTimeMillis();
-            System.out.println("exec used time: " + (System.currentTimeMillis() - stime) + "ms");
 
             for(QueryResult.Result result : queryResult.getResults()){
                 for(QueryResult.Series series : result.getSeries()){
@@ -230,10 +220,10 @@ public class DataController {
                 }
             }
             influxDBConnection.close();
-            System.out.println("used time: " + (System.currentTimeMillis() - stime) + "ms");
         }
         else if(dbtype.equals("kafka")){
 
+            // TODO: Kafka数据模型定义尚不完善，目前仅测试版本
             System.out.println(url);
             System.out.println(timeseries);
             System.out.println(columns);
@@ -263,15 +253,10 @@ public class DataController {
             }
             consumer.close();
         }
-        else
-            return res;
+        else return res;
 
-        Collections.sort(res, sampleComparator);
-
-//        if(res.size() > 0){
-//            System.out.println(res.get(0).get("time"));
-//            System.out.println(res.get(0).get("timestamp"));
-//        }
+        // 部分数据源存在查询结果时间乱序问题
+        res.sort(sampleComparator);
 
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();
