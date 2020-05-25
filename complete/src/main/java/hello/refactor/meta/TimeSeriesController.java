@@ -15,6 +15,9 @@ import hello.refactor.source.IoTDBConnection;
 import hello.refactor.source.PGConnection;
 import hello.refactor.source.InfluxDBConnection;
 
+/**
+* 时间序列控制器，用于返回某个数据库中的所有时间序列
+*/
 @RestController
 public class TimeSeriesController {
 
@@ -29,6 +32,7 @@ public class TimeSeriesController {
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
     ) throws SQLException {
 
+        // 通过网址的GET请求其参数字符串会包含引号，需要去掉
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
@@ -40,7 +44,9 @@ public class TimeSeriesController {
         List<TimeSeries> timeSeries = new LinkedList<>();
 
         if(dbtype.toLowerCase().equals("iotdb")){
+            // 如果输入了IP与PORT参数，则URL参数被替换
             if(ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+
             Connection connection = IoTDBConnection.getConnection(url, username, password);
             if (connection == null) {
                 System.out.println("get connection defeat");
@@ -53,7 +59,6 @@ public class TimeSeriesController {
             HashSet<String> set = new HashSet<>();
             if (resultSet != null) {
                 final ResultSetMetaData metaData = resultSet.getMetaData();
-                final int columnCount = metaData.getColumnCount();
                 while (resultSet.next()) {
                     String device = resultSet.getString(1).split("\\.")[2];
                     if(!set.contains(device)){
@@ -96,7 +101,5 @@ public class TimeSeriesController {
             return timeSeries;
         }
         else return null;
-
-
     }
 }

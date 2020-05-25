@@ -2,12 +2,12 @@ package hello.refactor.meta;
 
 public class Column {
     String column;
-    String type;
+    String dataType;
     String encoding;
 
-    Column(String column, String type, String encoding){
+    Column(String column, String dataType, String encoding){
         this.column = column;
-        this.type = type;
+        this.dataType = dataType;
         this.encoding = encoding;
     }
 
@@ -15,8 +15,8 @@ public class Column {
         return column;
     }
 
-    public String getType() {
-        return type;
+    public String getDataType() {
+        return dataType;
     }
 
     public String getEncoding() {

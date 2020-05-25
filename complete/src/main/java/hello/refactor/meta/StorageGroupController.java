@@ -1,5 +1,6 @@
 package hello.refactor.meta;
 
+import java.sql.*;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -8,12 +9,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.sql.*;
-
 import hello.refactor.source.IoTDBConnection;
 import hello.refactor.source.PGConnection;
 import hello.refactor.source.InfluxDBConnection;
 
+/**
+* 数据库控制器，用于返回某个数据源中的所有存储组/数据库信息
+*/
 @RestController
 public class StorageGroupController {
     @RequestMapping("/database")
@@ -26,6 +28,7 @@ public class StorageGroupController {
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
     ) throws SQLException {
 
+        // 通过网址的GET请求其参数字符串会包含引号，需要去掉
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
@@ -36,7 +39,9 @@ public class StorageGroupController {
         List<StorageGroup> storageGroup = new LinkedList<>();
 
         if(dbtype.toLowerCase().equals("iotdb")){
+            // 如果输入了IP与PORT参数，则URL参数被替换
             if(ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+
             Connection connection = IoTDBConnection.getConnection(url, username, password);
             if (connection == null) {
                 System.out.println("get connection defeat");
@@ -49,7 +54,6 @@ public class StorageGroupController {
 
             if (resultSet != null) {
                 final ResultSetMetaData metaData = resultSet.getMetaData();
-                final int columnCount = metaData.getColumnCount();
                 while (resultSet.next()) {
                     storageGroup.add(new StorageGroup(resultSet.getString(1)));
                 }
@@ -90,7 +94,5 @@ public class StorageGroupController {
             return storageGroup;
         }
         else return null;
-
-
     }
 }
