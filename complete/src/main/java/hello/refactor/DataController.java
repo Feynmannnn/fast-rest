@@ -3,11 +3,11 @@ package hello.refactor;
 import hello.refactor.source.InfluxDBConnection;
 import hello.refactor.source.IoTDBConnection;
 import hello.refactor.source.PGConnection;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.*;
+import java.sql.*;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -17,10 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.sql.*;
-import java.util.Date;
-
-import org.apache.iotdb.jdbc.IoTDBSQLException;
 
 @RestController
 public class DataController {
@@ -272,19 +268,18 @@ public class DataController {
 
         Collections.sort(res, sampleComparator);
 
-        if(res.size() > 0){
-            System.out.println(res.get(0).get("time"));
-            System.out.println(res.get(0).get("timestamp"));
-        }
-
+//        if(res.size() > 0){
+//            System.out.println(res.get(0).get("time"));
+//            System.out.println(res.get(0).get("timestamp"));
+//        }
 
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();
         for(Map<String, Object> map : res){
-            Object time = map.get("Time");
+            Object time = map.get("time");
             for(Map.Entry<String, Object> entry : map.entrySet()){
                 String mapKey = entry.getKey();
-                if(mapKey.equals("Time")) continue;
+                if(mapKey.equals("time")) continue;
                 Map<String, Object> m = new HashMap<>();
                 m.put("time", time);
                 m.put("label", mapKey);

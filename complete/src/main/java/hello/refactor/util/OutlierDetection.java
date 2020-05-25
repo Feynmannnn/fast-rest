@@ -1,8 +1,10 @@
 package hello.refactor.util;
 
-import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 离群点检测类，利用Z-score自动检测数据序列中的离群值个数
+ */
 public class OutlierDetection {
     public static double getMean(List<Double> values) {
         if(values == null || values.size() < 1) return 0;
@@ -36,13 +38,9 @@ public class OutlierDetection {
 
     public static int zscoreOutlierNum(List<Double> values, float scaleOfElimination){
         double mean = getMean(values);
-        System.out.println("mean" + mean);
         double stdDev = getStdDev(values);
-        System.out.println("stdDev" + stdDev);
 
         int res = 0;
-
-        final List<Double> newList = new ArrayList<>();
 
         for (double value : values) {
             boolean isLessThanLowerBound = value < mean - stdDev * scaleOfElimination;
@@ -54,6 +52,4 @@ public class OutlierDetection {
 
         return res;
     }
-
-
 }

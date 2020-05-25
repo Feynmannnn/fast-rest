@@ -7,9 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 public class SampleController {
@@ -74,6 +72,7 @@ public class SampleController {
             Double percent,
             Double alpha) throws SQLException {
 
+        // 先根据采样算子分桶，"simpleXXX"为等间隔分桶，否则为自适应分桶
         List<Bucket> buckets =
             sample.contains("simple") ?
             BucketsController._intervals(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, amount, dbtype) :
@@ -90,6 +89,22 @@ public class SampleController {
         String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
         String timelabel = "time";
 
-        return samplingOperator.sample(buckets, timelabel, label);
+        List<Map<String, Object>> res =  samplingOperator.sample(buckets, timelabel, label);
+
+        if(format.equals("map")) return res;
+        List<Map<String, Object>> result = new LinkedList<>();
+        for(Map<String, Object> map : res){
+            Object time = map.get("time");
+            for(Map.Entry<String, Object> entry : map.entrySet()){
+                String mapKey = entry.getKey();
+                if(mapKey.equals("time")) continue;
+                Map<String, Object> m = new HashMap<>();
+                m.put("time", time);
+                m.put("label", mapKey);
+                m.put("value", entry.getValue());
+                result.add(m);
+            }
+        }
+        return result;
     }
 }
