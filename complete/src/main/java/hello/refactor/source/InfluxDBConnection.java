@@ -9,8 +9,6 @@ import org.influxdb.dto.QueryResult;
 
 /**
  * InfluxDB数据库连接操作类
- *
- * @author MXW
  */
 public class InfluxDBConnection {
 
@@ -61,19 +59,5 @@ public class InfluxDBConnection {
 
     public void close() {
         influxDB.close();
-    }
-
-    public static void main(String[] args) {
-        InfluxDBConnection influxDBConnection = new InfluxDBConnection("http://192.168.10.172:8086", "root", "root", "NOAA_water_database", null);
-        QueryResult res = influxDBConnection.query("show field keys");
-        for(QueryResult.Result r : res.getResults()){
-            for(QueryResult.Series s : r.getSeries()){
-                for(List<Object> x :s.getValues()){
-                    for(Object o : x){
-                        System.out.println(o);
-                    }
-                }
-            }
-        }
     }
 }
