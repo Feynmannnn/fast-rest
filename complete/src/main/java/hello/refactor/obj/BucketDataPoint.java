@@ -2,6 +2,9 @@ package hello.refactor.obj;
 
 import java.util.Map;
 
+/**
+* 桶内数据类，仅用于离群点采样算子
+*/
 public class BucketDataPoint {
     private final Map<String, Object> data;
     private final int id;

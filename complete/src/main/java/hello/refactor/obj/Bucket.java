@@ -3,6 +3,9 @@ package hello.refactor.obj;
 import java.util.List;
 import java.util.Map;
 
+/**
+* 分桶类，包含每个桶内的数据点集合
+*/
 public class Bucket {
     private final List<Map<String, Object>> dataPoints;
 
