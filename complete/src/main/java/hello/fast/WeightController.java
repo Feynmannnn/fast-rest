@@ -13,7 +13,7 @@ import hello.fast.obj.Bucket;
 
 @RestController
 public class WeightController {
-    @RequestMapping("/bucket")
+    @RequestMapping("/weight")
     public List<Map<String, Object>> weights(
             @RequestParam(value="url", defaultValue = "jdbc:iotdb://127.0.0.1:6667/") String url,
             @RequestParam(value="username", defaultValue = "root") String username,
@@ -108,16 +108,19 @@ public class WeightController {
             double v;
             if (value instanceof Double) {
                 v = ((Double) value - (Double) lastValue);
+                values.add((Double)value);
             } else if (value instanceof Long) {
                 v = (((Long) value).doubleValue() - ((Long) lastValue).doubleValue());
+                values.add(((Long) value).doubleValue());
             } else if (value instanceof Integer) {
                 v = (((Integer) value).doubleValue() - ((Integer) lastValue).doubleValue());
+                values.add(((Integer) value).doubleValue());
             } else {
                 System.out.println("label" + label);
                 v = ((Double) value - (Double) lastValue);
+                values.add((Double)value);
             }
             lastValue = value;
-            values.add((Double)value);
             valueWeights.add(v);
         }
 
