@@ -9,7 +9,7 @@ import java.util.*;
 
 public class KafkaDataThread extends Thread {
 
-    String database;
+    private String database;
 
     KafkaDataThread(String database){
         this.database = database;
@@ -34,22 +34,19 @@ public class KafkaDataThread extends Thread {
 
         int batchSize = 100;
 
-
-        List<Map<String, Object>> linkeddatapoints = null;
+        List<Map<String, Object>> datapoints = new ArrayList<>();
         try {
-            linkeddatapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, dbtype);
+            datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, dbtype);
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        List<Map<String, Object>> datapoints = new ArrayList<>(linkeddatapoints);
 
         System.out.println("datapoints.size():" + datapoints.size());
 
         String label = database + "." + timeseries + "." + columns;
         System.out.println(label);
 
-        Long throughput = 0L;
-
+        long throughput = 0L;
         int index = 0;
         long round = 0;
         long time;
@@ -73,14 +70,12 @@ public class KafkaDataThread extends Thread {
 
             long loopStartTime = System.currentTimeMillis();
 
-
             for(int i = 0; i < 10; i++){
                 long batchStartTime = System.currentTimeMillis();
                 time = batchStartTime;
                 for(int j = 0; j < batchSize; j++){
                     Map<String, Object> p = datapoints.get(index);
-                    time += 1;
-//                    time = Timestamp.valueOf(p.get("time").toString()).getTime() + 5 * 84000000 * round;
+                    time += 1L;
                     value = Double.valueOf(p.get(label).toString());
                     kafkaProducer.send(new ProducerRecord<>(this.database, time, value));
                     System.out.println("datatime:"+time+" inserttime:"+System.currentTimeMillis());
@@ -101,7 +96,7 @@ public class KafkaDataThread extends Thread {
             }
 
             Long usedTime = System.currentTimeMillis() - loopStartTime;
-            System.out.println(String.format("Throughput: %s, used time: %s, average: %s", throughput * 10, usedTime, batchSize * 10 * 10000 / usedTime));
+            System.out.println(String.format("Throughput: %s, used time: %s, average: %s", throughput * 10, usedTime, batchSize * 10 * 1000 / usedTime));
         }
     }
 }

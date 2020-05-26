@@ -15,11 +15,7 @@ public class IoTDBConnection {
         Connection connection = null;
         try {
             Class.forName(driver);
-            connection = DriverManager.getConnection(
-                    url.replace("\"", ""),
-                    username.replace("\"", ""),
-                    password.replace("\"", "")
-            );
+            connection = DriverManager.getConnection(url, username, password);
         } catch (ClassNotFoundException | SQLException e) {
             e.printStackTrace();
         }

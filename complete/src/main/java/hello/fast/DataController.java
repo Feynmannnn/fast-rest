@@ -86,7 +86,7 @@ public class DataController {
             String dbtype
     ) throws SQLException {
 
-        List<Map<String, Object>> res = new LinkedList<>();
+        List<Map<String, Object>> res = new ArrayList<>();
         System.out.println(dbtype);
 
         if(dbtype.toLowerCase().equals("iotdb")){
@@ -259,7 +259,7 @@ public class DataController {
         res.sort(sampleComparator);
 
         if(format.equals("map")) return res;
-        List<Map<String, Object>> result = new LinkedList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
         for(Map<String, Object> map : res){
             Object time = map.get("time");
             for(Map.Entry<String, Object> entry : map.entrySet()){

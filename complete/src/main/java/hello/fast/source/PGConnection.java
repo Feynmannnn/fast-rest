@@ -22,7 +22,6 @@ public class PGConnection {
             Class.forName("org.postgresql.Driver").newInstance();
             connection = DriverManager.getConnection(url, username, password);
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException | SQLException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
         return connection;
@@ -46,7 +45,6 @@ public class PGConnection {
             pStatement = conn.prepareStatement(sql);
             pStatement.executeUpdate();
         } catch (SQLException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }

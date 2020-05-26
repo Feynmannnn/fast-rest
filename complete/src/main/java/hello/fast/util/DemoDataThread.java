@@ -12,7 +12,7 @@ import java.util.Map;
 
 public class DemoDataThread extends Thread {
 
-    String database;
+    private String database;
 
     DemoDataThread(String database){
         this.database = database;
@@ -38,20 +38,18 @@ public class DemoDataThread extends Thread {
         int batchSize = 100;
 
 
-        List<Map<String, Object>> linkeddatapoints = null;
+        List<Map<String, Object>> datapoints = new ArrayList<>();
         try {
-            linkeddatapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, dbtype);
+            datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, dbtype);
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        List<Map<String, Object>> datapoints = new ArrayList<>(linkeddatapoints);
 
         System.out.println("datapoints.size():" + datapoints.size());
 
         String dataUrl = "jdbc:iotdb://192.168.10.172:6667/";
         String dataUsername = "root";
         String dataPassword = "root";
-
 
         Connection connection = IoTDBConnection.getConnection(dataUrl, dataUsername, dataPassword);
         if (connection == null) {
@@ -90,9 +88,7 @@ public class DemoDataThread extends Thread {
         String label = database + "." + timeseries + "." + columns;
         System.out.println(label);
 
-        Long throughput = 0L;
-        Long kickoffTime = System.currentTimeMillis();
-
+        long throughput = 0L;
         int index = 0;
         long round = 0;
         String insertSql = "insert into %s.%s(timestamp, %s) values(%s, %s);";
@@ -103,12 +99,10 @@ public class DemoDataThread extends Thread {
 
             long loopStartTime = System.currentTimeMillis();
 
-
             for(int i = 0; i < 10; i++){
                 long batchStartTime = System.currentTimeMillis();
                 time = batchStartTime;
                 for(int j = 0; j < batchSize; j++){
-                    // add one insert sql
                     Map<String, Object> p = datapoints.get(index);
                     time += 1L;
                     value = p.get(label).toString();
@@ -141,7 +135,7 @@ public class DemoDataThread extends Thread {
             }
 
             Long usedTime = System.currentTimeMillis() - loopStartTime;
-            System.out.println(String.format("Throughput: %s, used time: %s, average: %s", throughput * 10, usedTime, batchSize * 10 * 10000 / usedTime));
+            System.out.println(String.format("Throughput: %s, used time: %s, average: %s", throughput * 10, usedTime, batchSize * 10 * 1000 / usedTime));
         }
     }
 }
