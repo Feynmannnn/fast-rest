@@ -49,10 +49,10 @@ public class SampleController {
         port = port == null ? null : port.replace("\"", "");
         query = query == null ? null : query.replace("\"", "");
 
-        return _dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, sample, ip, port, amount, dbtype, percent, alpha);
+        return _samplePoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, sample, ip, port, amount, dbtype, percent, alpha);
     }
 
-    static List<Map<String, Object>> _dataPoints(
+    static List<Map<String, Object>> _samplePoints(
             String url,
             String username,
             String password,
@@ -106,5 +106,16 @@ public class SampleController {
             }
         }
         return result;
+    }
+
+    static List<Map<String, Object>> _samplePoints(List<Bucket> buckets, String timelabel, String label, String sample){
+        SamplingOperator samplingOperator;
+
+        if(sample.contains("agg")) samplingOperator = new Aggregation();
+        else if(sample.contains("sample")) samplingOperator = new Sample();
+        else if(sample.contains("outlier")) samplingOperator = new Outlier();
+        else samplingOperator = new M4();
+
+        return samplingOperator.sample(buckets, timelabel, label);
     }
 }

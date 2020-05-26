@@ -30,8 +30,8 @@ public class BucketsController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
-            @RequestParam(value="percent", required = false) Double percent,
-            @RequestParam(value="alpha", required = false) Double alpha
+            @RequestParam(value="timeLimit", required = false) Double timeLimit,
+            @RequestParam(value="valueLimit", required = false) Double valueLimit
     ) throws SQLException {
 
         url = url.replace("\"", "");
@@ -49,7 +49,7 @@ public class BucketsController {
         port = port == null ? null : port.replace("\"", "");
         query = query == null ? null : query.replace("\"", "");
 
-        return _buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, percent, alpha);
+        return _buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, timeLimit, valueLimit);
     }
 
     static List<Bucket> _buckets(
@@ -68,19 +68,19 @@ public class BucketsController {
             String port,
             Integer amount,
             String dbtype,
-            Double percent,
-            Double alpha
+            Double timeLimit,
+            Double valueLimit
     ) throws SQLException {
-        List<Map<String, Object>> linkedDataPoints = DataController._dataPoints(
+        List<Map<String, Object>> dataPoints = DataController._dataPoints(
                 url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, dbtype);
-        if(linkedDataPoints.size() < 2) return null;
 
-        List<Map<String, Object>> dataPoints = new ArrayList<>(linkedDataPoints);
+        if(dataPoints.size() < 2) return null;
+
         String iotdbLabel = database + "." + timeseries + "." +columns;
         String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
         String timelabel = "time";
 
-        return _buckets(dataPoints, timelabel, label, amount, percent, alpha);
+        return _buckets(dataPoints, timelabel, label, amount, timeLimit, valueLimit);
     }
 
     static List<Bucket> _intervals(
@@ -134,129 +134,11 @@ public class BucketsController {
         return buckets;
     }
 
-    static List<Bucket> _buckets(List<Map<String, Object>> dataPoints, String timelabel, String label, Integer amount, Double percent, Double alpha){
+    static long _bucketSum(List<Map<String, Object>> dataPoints, String timelabel, String label, Integer amount, Double timeLimit, Double valueLimit){
         for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
-
+        WeightController._weights(dataPoints, timelabel, label, amount, timeLimit, valueLimit);
         List<Double> weights = new ArrayList<>();
-        List<Double> timeWeights = new ArrayList<>();
-        List<Double> valueWeights = new ArrayList<>();
-        List<Double> grads = new ArrayList<>();
-        List<Bucket> res = new LinkedList<>();
-
-        long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
-        for(Map<String, Object> point : dataPoints){
-            Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
-            Double weight = (t.getTime() - lastTimestamp) + 0.0;
-            timeWeights.add(weight);
-            lastTimestamp = t.getTime();
-        }
-
-        System.out.println("percent" + percent);
-
-        Object lastValue = dataPoints.get(0).get(label);
-        Double maxValue, minValue;
-        if(lastValue instanceof Double) {
-            maxValue = ((Double) lastValue);
-            minValue = ((Double) lastValue);
-        }
-        else if(lastValue instanceof Long) {
-            maxValue = (((Long) lastValue).doubleValue());
-            minValue = (((Long) lastValue).doubleValue());
-        }
-        else if(lastValue instanceof Integer) {
-            maxValue = (((Integer) lastValue).doubleValue());
-            minValue = (((Integer) lastValue).doubleValue());
-        }
-        else {
-            maxValue = ((Double) lastValue);
-            minValue = ((Double) lastValue);
-        }
-
-        for(Map<String, Object> point : dataPoints){
-            Object value = point.get(label);
-            double v;
-            if(value instanceof Double) {
-                v = ((Double) value - (Double) lastValue);
-                maxValue = Math.max(maxValue, (Double) value);
-                minValue = Math.min(minValue, (Double) value);
-            }
-            else if(value instanceof Long) {
-                v = (((Long) value).doubleValue() - ((Long) lastValue).doubleValue());
-                maxValue = Math.max(maxValue, ((Long) value).doubleValue());
-                minValue = Math.min(minValue, ((Long) value).doubleValue());
-            }
-            else if(value instanceof Integer) {
-                v = (((Integer) value).doubleValue() - ((Integer) lastValue).doubleValue());
-                maxValue = Math.max(maxValue, ((Integer) value).doubleValue());
-                minValue = Math.min(minValue, ((Integer) value).doubleValue());
-            }
-            else {
-                System.out.println("label" + label);
-                v = ((Double) value - (Double) lastValue);
-                maxValue = Math.max(maxValue, (Double) value);
-                minValue = Math.min(minValue, (Double) value);
-            }
-            double valueWeight = (v);
-            valueWeights.add(valueWeight);
-            lastValue = value;
-        }
-        double valueRange = maxValue - minValue;
-
-        boolean percentIsNull = percent == null;
-        boolean alphaIsNull = alpha == null;
-
-        if(percentIsNull){
-            int timeOutlierNum = OutlierDetection.zscoreOutlierNum(timeWeights, 3);
-            Double[] timeWeightStat = timeWeights.toArray(new Double[0]);
-            Arrays.sort(timeWeightStat);
-            percent = timeWeightStat[timeWeights.size() - timeOutlierNum - 1];
-            if(percent <= 0) percent = 1.0;
-        }
-
-        if(alphaIsNull){
-            int valueOutlierNum = OutlierDetection.zscoreOutlierNum(valueWeights, 3);
-            Double[] valueWeightStat = valueWeights.toArray(new Double[0]);
-            Arrays.sort(valueWeightStat);
-            alpha = valueWeightStat[valueWeights.size() - valueOutlierNum - 1];
-            if(alpha <= 0) alpha = 1.0;
-        }
-
-        double grad = 0.0;
-        for(int i = 1; i < dataPoints.size(); i++){
-            if(timeWeights.get(i) >= percent || valueWeights.get(i) >= alpha) grad = Double.POSITIVE_INFINITY;
-            else grad = Math.atan(valueWeights.get(i) / timeWeights.get(i));
-            grads.add(grad);
-        }
-        grads.add(grad);
-
-        Double maxWeight = 0.0;
-        weights.add(0.0);
-        for(int i = 1; i < dataPoints.size()-1; i++) {
-            if(Double.isInfinite(grads.get(i)) || Double.isInfinite(grads.get(i-1))){
-                weights.add(-1.0);
-            }
-            else{
-                double t1 = timeWeights.get(i) * 100 / percent;
-                double t2 = timeWeights.get(i + 1) * 100 / percent;
-                double v1 = valueWeights.get(i) * 100 / alpha;
-                double v2 = valueWeights.get(i + 1) * 100 / alpha;
-                double AB = Math.sqrt(t1 * t1 + v1 * v1);
-                double BC = Math.sqrt(t2 * t2 + v2 * v2);
-                double w = (AB + BC);
-                if(Double.isNaN(w)) w = 0;
-                maxWeight = Math.max(w, maxWeight);
-                weights.add(w);
-            }
-        }
-        weights.add(0.0);
-
-        for (int i = 0; i < weights.size(); i++){
-            if(weights.get(i) > 0) weights.set(i, weights.get(i) * 100 / maxWeight);
-            dataPoints.get(i).put("weight", weights.get(i));
-        }
-
-        System.out.println(dataPoints.size());
-        System.out.println(weights.size());
+        for(Map<String, Object> dataPoint : dataPoints) weights.add((Double)dataPoint.get("weight"));
 
         // 二分查找
         int n = amount == null ? 1000 : amount / 4;
@@ -282,6 +164,19 @@ public class BucketsController {
         }
         long bucketSum = lo;
         System.out.println("bucketSum" + bucketSum);
+        return bucketSum;
+    }
+
+    static List<Bucket> _buckets(List<Map<String, Object>> dataPoints, String timelabel, String label, Integer amount, Double timeLimit, Double valueLimit){
+        List<Bucket> res = new ArrayList<>();
+
+        for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
+        WeightController._weights(dataPoints, timelabel, label, amount, timeLimit, valueLimit);
+        List<Double> weights = new ArrayList<>();
+        for(Map<String, Object> dataPoint : dataPoints) weights.add((Double)dataPoint.get("weight"));
+
+        long bucketSum = _bucketSum(dataPoints, timelabel, label, amount, timeLimit, valueLimit);
+
         double sum = 0;
         int lastIndex = 0;
 
@@ -318,7 +213,6 @@ public class BucketsController {
             }
         }
 
-        System.out.println(res.size());
         return res;
     }
 }
