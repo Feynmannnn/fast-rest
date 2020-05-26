@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -61,15 +62,13 @@ public class QueryController {
             if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
         }
 
-        Long t = System.currentTimeMillis();
-
         String config = "";
         try {
             BufferedReader br = new BufferedReader(new FileReader("fast.config"));
             String str = "";
             StringBuilder sb = new StringBuilder();
             while ((str = br.readLine()) != null) {
-                str=new String(str.getBytes(),"UTF-8");//解决中文乱码问题
+                str=new String(str.getBytes(), StandardCharsets.UTF_8);//解决中文乱码问题
                 sb.append(str);
             }
             config = sb.toString();
@@ -85,7 +84,7 @@ public class QueryController {
 
         // iotdb is . tsdb is _
         String[] tables = subTables(url, innerUrl, innerUserName, innerPassword, database, timeseries, columns);
-
+        // 是否已经找到对应层级
         boolean hit = false;
 
         List<Map<String, Object>> res = null;
@@ -102,6 +101,7 @@ public class QueryController {
             System.out.println("res.size()" + res.size());
             if (res.size() >= amount) {
                 hit = true;
+                // 找到对应层级后，以最新数据点为起始时间继续向下查询
                 starttime = res.get(res.size() - 1).get("time").toString();
             }
         }
@@ -135,7 +135,7 @@ public class QueryController {
             @RequestParam(value="columns") String columns,
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
-            @RequestParam(value="percent", required = false) Double percent,
+            @RequestParam(value="error", required = false) Double errorPercent,
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
@@ -167,15 +167,13 @@ public class QueryController {
             if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
         }
 
-        Long t = System.currentTimeMillis();
-
         String config = "";
         try {
             BufferedReader br = new BufferedReader(new FileReader("fast.config"));
             String str = "";
             StringBuilder sb = new StringBuilder();
             while ((str = br.readLine()) != null) {
-                str=new String(str.getBytes(),"UTF-8");//解决中文乱码问题
+                str=new String(str.getBytes(), StandardCharsets.UTF_8);//解决中文乱码问题
                 sb.append(str);
             }
             config = sb.toString();
@@ -185,7 +183,6 @@ public class QueryController {
         }
 
         JSONObject jsonObject = JSONObject.parseObject(config);
-        String autovisURL = jsonObject.getString("autovisURL");
         String innerUrl = jsonObject.getString("innerURL");
         String innerUserName = jsonObject.getString("innerusername");
         String innerPassword = jsonObject.getString("innerpassword");
@@ -216,7 +213,7 @@ public class QueryController {
             }
 
             System.out.println(error / area);
-            if((error / area) <= percent) {
+            if((error / area) <= errorPercent) {
                 hit = true;
             }
 
@@ -229,6 +226,7 @@ public class QueryController {
         return res;
     }
 
+    // 数据源对应的订阅数据表
     static String[] subTables(String url, String innerurl, String username, String password, String database, String timeseries, String columns) throws SQLException {
         try{
             List<TimeSeries> timeSeries = new TimeSeriesController().timeSeries(innerurl, username, password, database.replace(".", "_"), null, null, "pg");
