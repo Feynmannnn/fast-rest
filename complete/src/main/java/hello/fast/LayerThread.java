@@ -32,6 +32,7 @@ public class LayerThread extends Thread{
     private String database;
     private String timeseries;
     private String columns;
+    private String timecolumn;
     private String starttime;
     private String endtime;
     private String TYPE;
@@ -49,13 +50,14 @@ public class LayerThread extends Thread{
     private BlockingQueue<Map<String, Object>> sampleQueue;
     private Long bucketSum;
 
-    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double timeLimit, Double valueLimit, Long batchlimit, BlockingQueue<Map<String, Object>> dataQueue, Long bucketSum){
+    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String timecolumn, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double timeLimit, Double valueLimit, Long batchlimit, BlockingQueue<Map<String, Object>> dataQueue, Long bucketSum){
         this.url = url;
         this.username = username;
         this.password = password;
         this.database = database;
         this.timeseries = timeseries;
         this.columns = columns;
+        this.timecolumn = timecolumn;
         this.starttime = starttime;
         this.endtime = endtime;
         this.TYPE = TYPE;
@@ -189,6 +191,7 @@ public class LayerThread extends Thread{
                     database,
                     timeseries,
                     columns,
+                    timecolumn,
                     latestTime,
                     null,
                     String.format(" limit %s", batchlimit),
@@ -312,6 +315,7 @@ public class LayerThread extends Thread{
                         database,
                         timeseries,
                         columns,
+                        timecolumn,
                         latestTime,
                         null,
                         String.format(" limit %s", batchlimit),
@@ -404,7 +408,7 @@ public class LayerThread extends Thread{
                 String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
                 String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
                 System.out.println("kick off the level " + (level +1) + "<<<<<<!!!!!!!");
-                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", timeLimit * ratio, valueLimit, batchlimit, sampleQueue, bucketSum * ratio / 2);
+                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, timecolumn, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", timeLimit * ratio, valueLimit, batchlimit, sampleQueue, bucketSum * ratio / 2);
                 pgsubscribeThread.start();
             }
 

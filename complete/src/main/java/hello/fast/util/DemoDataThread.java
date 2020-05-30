@@ -40,7 +40,7 @@ public class DemoDataThread extends Thread {
 
         List<Map<String, Object>> datapoints = new ArrayList<>();
         try {
-            datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, dbtype);
+            datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, conditions, query, format, ip, port, dbtype);
         } catch (SQLException e) {
             e.printStackTrace();
         }

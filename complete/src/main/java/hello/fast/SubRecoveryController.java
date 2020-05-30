@@ -109,6 +109,7 @@ public class SubRecoveryController implements ApplicationRunner {
             String database = param.get("database").toString();
             String timeseries = param.get("timeseries").toString();
             String columns = param.get("columns").toString();
+            String timecolumn = param.containsKey("timecolumn") ? param.get("timecolumn").toString() : "time";
             String username = param.get("username").toString();
             String password = param.get("password").toString();
             String starttime = param.get("starttime").toString();
@@ -176,7 +177,7 @@ public class SubRecoveryController implements ApplicationRunner {
 
             connection.close();
 
-            new LayerController().subscribe(path, username, password, database, timeseries, columns, newStartTime, endtime, sample, percent, alpha, ratio, ip, port, dbtype, 100000L);
+            new LayerController().subscribe(path, username, password, database, timeseries, columns, timecolumn, newStartTime, endtime, sample, percent, alpha, ratio, ip, port, dbtype, 100000L);
 
         }
     }

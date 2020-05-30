@@ -25,6 +25,7 @@ public class LayerController {
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
             @RequestParam(value="columns") String columns,
+            @RequestParam(value="timecolumn", defaultValue = "time") String timecolumn,
             @RequestParam(value="starttime", defaultValue = "1971-01-01 00:00:00") String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="sample") String sample,
@@ -43,6 +44,7 @@ public class LayerController {
         database = database.replace("\"", "");
         timeseries = timeseries.replace("\"", "");
         columns = columns.replace("\"", "");
+        timecolumn = timecolumn.replace("\"", "");
         starttime = starttime.replace("\"", "");
         endtime = endtime == null ? null : endtime.replace("\"", "");
         sample = sample.replace("\"", "");
@@ -123,7 +125,7 @@ public class LayerController {
 
         System.out.println(TYPE);
 
-        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, starttime, endtime, TYPE, ratio, subId, 0, sample, dbtype, percent, alpha, batchlimit,null, null);
+        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, TYPE, ratio, subId, 0, sample, dbtype, percent, alpha, batchlimit,null, null);
         subscribeThread.start();
 
         return subId;

@@ -40,6 +40,7 @@ public class DataController {
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries", required = false) String timeseries,
             @RequestParam(value="columns", required = false) String columns,
+            @RequestParam(value="timecolumn", defaultValue = "time") String timecolumn,
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="conditions", required = false) String conditions,
@@ -57,6 +58,7 @@ public class DataController {
         database = database.replace("\"", "");
         timeseries = timeseries.replace("\"", "");
         columns = columns.replace("\"", "");
+        timecolumn = timecolumn.replace("\"", "");
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null :endtime.replace("\"", "");
         conditions = conditions == null ? null : conditions.replace("\"", "");
@@ -66,7 +68,7 @@ public class DataController {
         port = port == null ? null : port.replace("\"", "");
         query = query == null ? null : query.replace("\"", "");
 
-        return _dataPoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, dbtype);
+        return _dataPoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, dbtype);
     }
 
     public static List<Map<String, Object>> _dataPoints(
@@ -76,6 +78,7 @@ public class DataController {
             String database,
             String timeseries,
             String columns,
+            String timecolumn,
             String starttime,
             String endtime,
             String conditions,
@@ -121,15 +124,15 @@ public class DataController {
                         else if(Types.FLOAT == type) map.put(label, resultSet.getFloat(i));
                         else if(Types.DOUBLE == type) map.put(label, resultSet.getDouble(i));
                         else if(Types.DATE == type) {
-                            map.put(label.toLowerCase(), resultSet.getDate(i));
+                            map.put("time", resultSet.getDate(i));
                             map.put("timestamp", resultSet.getDate(i).getTime());
                         }
                         else if(Types.TIME == type) {
-                            map.put(label.toLowerCase(), resultSet.getTime(i));
+                            map.put("time", resultSet.getTime(i));
                             map.put("timestamp", resultSet.getTime(i).getTime());
                         }
                         else if(Types.TIMESTAMP == type) {
-                            map.put(label.toLowerCase(), resultSet.getTimestamp(i));
+                            map.put("time", resultSet.getTimestamp(i));
                             map.put("timestamp", resultSet.getTimestamp(i).getTime());
                         }
                         else map.put(label, resultSet.getString(i));
@@ -156,6 +159,7 @@ public class DataController {
                     (endtime   == null ? "" : " AND time < '" + endtime + "'") +
                     (conditions == null ? "" : " " + conditions);
             System.out.println(sql);
+            sql = sql.replace("time", timecolumn);
             ResultSet resultSet = pgtool.query(connection, sql);
 
             if (resultSet != null) {
@@ -173,15 +177,15 @@ public class DataController {
                         else if(Types.DOUBLE == type) map.put(label, resultSet.getDouble(i));
                         else if(Types.NUMERIC == type) map.put(label, resultSet.getDouble(i));
                         else if(Types.DATE == type) {
-                            map.put(label.toLowerCase(), resultSet.getDate(i));
+                            map.put("time", resultSet.getDate(i));
                             map.put("timestamp", resultSet.getDate(i).getTime());
                         }
                         else if(Types.TIME == type) {
-                            map.put(label.toLowerCase(), resultSet.getTime(i));
+                            map.put("time", resultSet.getTime(i));
                             map.put("timestamp", resultSet.getTime(i).getTime());
                         }
                         else if(Types.TIMESTAMP == type) {
-                            map.put(label.toLowerCase(), resultSet.getTimestamp(i));
+                            map.put("time", resultSet.getTimestamp(i));
                             map.put("timestamp", resultSet.getTimestamp(i).getTime());
                         }
                         else map.put(label, resultSet.getString(i));

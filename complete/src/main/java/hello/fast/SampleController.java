@@ -19,6 +19,7 @@ public class SampleController {
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
             @RequestParam(value="columns") String columns,
+            @RequestParam(value="timecolumn", defaultValue = "time") String timecolumn,
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="conditions", required = false) String conditions,
@@ -39,6 +40,7 @@ public class SampleController {
         database = database.replace("\"", "");
         timeseries = timeseries.replace("\"", "");
         columns = columns.replace("\"", "");
+        timecolumn = timecolumn.replace("\"", "");
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null :endtime.replace("\"", "");
         conditions = conditions == null ? null : conditions.replace("\"", "");
@@ -49,7 +51,7 @@ public class SampleController {
         port = port == null ? null : port.replace("\"", "");
         query = query == null ? null : query.replace("\"", "");
 
-        return _samplePoints(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, sample, ip, port, amount, dbtype, percent, alpha);
+        return _samplePoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, sample, ip, port, amount, dbtype, percent, alpha);
     }
 
     static List<Map<String, Object>> _samplePoints(
@@ -59,6 +61,7 @@ public class SampleController {
             String database,
             String timeseries,
             String columns,
+            String timecolumn,
             String starttime,
             String endtime,
             String conditions,
@@ -75,8 +78,8 @@ public class SampleController {
         // 先根据采样算子分桶，"simpleXXX"为等间隔分桶，否则为自适应分桶
         List<Bucket> buckets =
             sample.contains("simple") ?
-            BucketsController._intervals(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, amount, dbtype) :
-            BucketsController._buckets(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, percent, alpha);
+            BucketsController._intervals(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, amount, dbtype) :
+            BucketsController._buckets(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, percent, alpha);
 
         SamplingOperator samplingOperator;
 

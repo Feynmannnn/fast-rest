@@ -21,6 +21,7 @@ public class WeightController {
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
             @RequestParam(value="columns") String columns,
+            @RequestParam(value="timecolumn", defaultValue = "time") String timecolumn,
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
             @RequestParam(value="conditions", required = false) String conditions,
@@ -39,6 +40,7 @@ public class WeightController {
         database = database.replace("\"", "");
         timeseries = timeseries.replace("\"", "");
         columns = columns.replace("\"", "");
+        timecolumn = timecolumn.replace("\"", "");
         starttime = starttime == null ? null : starttime.replace("\"", "");
         endtime = endtime == null ? null :endtime.replace("\"", "");
         conditions = conditions == null ? null : conditions.replace("\"", "");
@@ -48,7 +50,7 @@ public class WeightController {
         port = port == null ? null : port.replace("\"", "");
         query = query == null ? null : query.replace("\"", "");
 
-        return _weights(url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, timeLimit, valueLimit);
+        return _weights(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, timeLimit, valueLimit);
     }
 
     public List<Map<String, Object>> _weights(
@@ -58,6 +60,7 @@ public class WeightController {
             String database,
             String timeseries,
             String columns,
+            String timecolumn,
             String starttime,
             String endtime,
             String conditions,
@@ -71,7 +74,7 @@ public class WeightController {
             Double valueLimit
     ) throws SQLException {
         List<Map<String, Object>> dataPoints = DataController._dataPoints(
-                url, username, password, database, timeseries, columns, starttime, endtime, conditions, query, "map", ip, port, dbtype);
+                url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, "map", ip, port, dbtype);
 
         if(dataPoints.size() < 2) return null;
 
