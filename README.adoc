@@ -8,6 +8,20 @@
 
 This guide walks you through the process of creating a "hello world" link:/understanding/REST[RESTful web service] with Spring.
 
+== 如何启动服务
+
+首先安装maven环境，然后进入complete目录（pom.xml所在目录），执行打包程序
+
+----
+mvn package
+----
+
+生成的jar包文件gs-rest-service-0.1.0.jar位于target目录中，可以拷贝到任意目录中启动服务
+
+----
+java -jar gs-rest-service-0.1.0.jar
+----
+
 == What you'll build
 
 You'll build a service that will accept HTTP GET requests at:
