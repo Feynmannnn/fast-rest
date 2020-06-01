@@ -25,9 +25,9 @@ public class LayerController {
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
             @RequestParam(value="columns") String columns,
-            @RequestParam(value="timecolumn", defaultValue = "time") String timecolumn,
-            @RequestParam(value="starttime", defaultValue = "1971-01-01 00:00:00") String starttime,
-            @RequestParam(value="endtime", required = false) String endtime,
+            @RequestParam(value="timeColumn", defaultValue = "time") String timecolumn,
+            @RequestParam(value="startTime", defaultValue = "1971-01-01 00:00:00") String starttime,
+            @RequestParam(value="endTime", required = false) String endtime,
             @RequestParam(value="sample") String sample,
             @RequestParam(value="percent", required = false) Double percent,
             @RequestParam(value="alpha", required = false) Double alpha,
@@ -35,7 +35,7 @@ public class LayerController {
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
-            @RequestParam(value="batchlimit", defaultValue = "100000") Long batchlimit
+            @RequestParam(value="batchLimit", defaultValue = "100000") Long batchlimit
     ) throws SQLException, NoSuchAlgorithmException {
 
         url = url.replace("\"", "");

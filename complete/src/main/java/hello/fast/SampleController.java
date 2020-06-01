@@ -19,9 +19,9 @@ public class SampleController {
             @RequestParam(value="database") String database,
             @RequestParam(value="timeseries") String timeseries,
             @RequestParam(value="columns") String columns,
-            @RequestParam(value="timecolumn", defaultValue = "time") String timecolumn,
-            @RequestParam(value="starttime", required = false) String starttime,
-            @RequestParam(value="endtime", required = false) String endtime,
+            @RequestParam(value="timeColumn", defaultValue = "time") String timecolumn,
+            @RequestParam(value="startTime", required = false) String starttime,
+            @RequestParam(value="endTime", required = false) String endtime,
             @RequestParam(value="conditions", required = false) String conditions,
             @RequestParam(value="query", required = false) String query,
             @RequestParam(value="format", defaultValue = "map") String format,
@@ -30,8 +30,8 @@ public class SampleController {
             @RequestParam(value="amount", required = false) Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="sample", defaultValue = "m4") String sample,
-            @RequestParam(value="percent", required = false) Double percent,
-            @RequestParam(value="alpha", required = false) Double alpha
+            @RequestParam(value="timeLimit", required = false) Double timeLimit,
+            @RequestParam(value="valueLimit", required = false) Double valueLimit
     ) throws Exception {
 
         url = url.replace("\"", "");
@@ -51,7 +51,7 @@ public class SampleController {
         port = port == null ? null : port.replace("\"", "");
         query = query == null ? null : query.replace("\"", "");
 
-        return _samplePoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, sample, ip, port, amount, dbtype, percent, alpha);
+        return _samplePoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, sample, ip, port, amount, dbtype, timeLimit, valueLimit);
     }
 
     static List<Map<String, Object>> _samplePoints(
@@ -72,14 +72,14 @@ public class SampleController {
             String port,
             Integer amount,
             String dbtype,
-            Double percent,
-            Double alpha) throws SQLException {
+            Double timeLimit,
+            Double valueLimit) throws SQLException {
 
         // 先根据采样算子分桶，"simpleXXX"为等间隔分桶，否则为自适应分桶
         List<Bucket> buckets =
             sample.contains("simple") ?
             BucketsController._intervals(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, amount, dbtype) :
-            BucketsController._buckets(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, percent, alpha);
+            BucketsController._buckets(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, timeLimit, valueLimit);
 
         SamplingOperator samplingOperator;
 
