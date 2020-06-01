@@ -83,8 +83,8 @@ public class SampleController {
 
         SamplingOperator samplingOperator;
 
-        if(sample.contains("agg")) samplingOperator = new Aggregation();
-        else if(sample.contains("sample")) samplingOperator = new Sample();
+        if(sample.contains("aggregation")) samplingOperator = new Aggregation();
+        else if(sample.contains("random")) samplingOperator = new Sample();
         else if(sample.contains("outlier")) samplingOperator = new Outlier();
         else samplingOperator = new M4();
 
@@ -114,8 +114,8 @@ public class SampleController {
     static List<Map<String, Object>> _samplePoints(List<Bucket> buckets, String timelabel, String label, String sample){
         SamplingOperator samplingOperator;
 
-        if(sample.contains("agg")) samplingOperator = new Aggregation();
-        else if(sample.contains("sample")) samplingOperator = new Sample();
+        if(sample.contains("aggregation")) samplingOperator = new Aggregation();
+        else if(sample.contains("random")) samplingOperator = new Sample();
         else if(sample.contains("outlier")) samplingOperator = new Outlier();
         else samplingOperator = new M4();
 

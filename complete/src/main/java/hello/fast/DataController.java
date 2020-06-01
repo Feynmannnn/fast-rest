@@ -143,7 +143,7 @@ public class DataController {
             statement.close();
             connection.close();
         }
-        else if(dbtype.toLowerCase().equals("pg")){
+        else if(dbtype.toLowerCase().equals("postgresql") || dbtype.toLowerCase().equals("timescaledb")){
             if(ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
 
             PGConnection pgtool = new PGConnection(url+database, username, password);
