@@ -5,12 +5,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.*;
-import hello.fast.obj.Bucket;
 
+/**
+* 权重控制器，将原始数据按照波动度计算权重
+*/
 @RestController
 public class WeightController {
     @RequestMapping("/weight")

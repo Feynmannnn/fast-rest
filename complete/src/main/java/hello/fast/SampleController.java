@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.sql.SQLException;
 import java.util.*;
 
+/**
+* 采样控制器，将分桶后的数据进行采样
+*/
 @RestController
 public class SampleController {
     @RequestMapping("/sample")
@@ -87,17 +90,12 @@ public class SampleController {
         else if(sample.contains("outlier")) samplingOperator = new Outlier();
         else samplingOperator = new M4();
 
-
-
         long dataPointCount = DataController._dataPointsCount(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, dbtype);
 
         long freememery = Runtime.getRuntime().freeMemory();
-        long batchLimit = freememery * 500000L / 10000000000L;
-        System.out.println("batchLimit" + batchLimit);
+        long batchLimit = freememery * 20000L;
         if(!conditions.contains("limit")) conditions = conditions + " limit " + batchLimit;
-
         amount = (int)(amount * batchLimit / dataPointCount);
-        System.out.println("amount" + amount);
 
         String latestTime = starttime;
 
@@ -107,11 +105,12 @@ public class SampleController {
                 sample.contains("simple") ?
                 BucketsController._intervals(url, username, password, database, timeseries, columns, timecolumn, latestTime, endtime, conditions, query, format, ip, port, amount, dbtype) :
                 BucketsController._buckets(url, username, password, database, timeseries, columns, timecolumn, latestTime, endtime, conditions, query, format, ip, port, amount, dbtype, timeLimit, valueLimit);
+
             // 无新数据，数据已经消费完成
             if(buckets == null) break;
+            // 最新数据点时间没有改变，数据已经消费完成
             List<Map<String, Object>> lastBucket = buckets.get(buckets.size()-1).getDataPoints();
             String newestTime = lastBucket.get(lastBucket.size()-1).get("time").toString().substring(0, 19);
-            // 最新数据点时间没有改变，数据已经消费完成
             if(latestTime.equals(newestTime)) break;
             else latestTime = newestTime;
 

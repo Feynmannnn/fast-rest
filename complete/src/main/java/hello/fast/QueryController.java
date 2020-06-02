@@ -15,6 +15,9 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.*;
 
+/**
+* 查询控制器，实现数据采样订阅的层级查询引擎
+*/
 @RestController
 public class QueryController {
 

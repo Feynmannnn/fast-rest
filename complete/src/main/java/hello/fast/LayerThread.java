@@ -14,6 +14,9 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+* 层级采样线程
+*/
 public class LayerThread extends Thread{
 
     // 根据时间戳对数据进行排序 （从TimescaleDB查询的数据结果存在时间的乱序问题）

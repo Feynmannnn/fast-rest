@@ -18,6 +18,9 @@ import java.net.ConnectException;
 
 import hello.fast.source.PGConnection;
 
+/**
+* 订阅恢复控制器，在服务器重启后，从autovis请求已有的订阅任务并恢复
+*/
 @Component
 public class SubRecoveryController implements ApplicationRunner {
 

@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 
+/**
+* 层级控制器，实现数据采样订阅的层级采样
+*/
 @RestController
 public class LayerController {
 
