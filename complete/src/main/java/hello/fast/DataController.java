@@ -202,9 +202,9 @@ public class DataController {
             String sql = query != null ? query :
                     "SELECT " + columns +
                     " FROM " + timeseries +
-                    (starttime == null ? "" : " WHERE time >= " + starttime) +
-                    (endtime   == null ? "" : " AND time < " + endtime) +
-                    (conditions == null ? "" : conditions);
+                    (starttime == null ? "" : " WHERE time >= '" + starttime) +
+                    (endtime   == null ? "" : "' AND time < '" + endtime) + "' " +
+                    (conditions == null ? "" : conditions) + ";";
             System.out.println(sql);
             QueryResult queryResult = influxDBConnection.query(sql);
 
@@ -277,5 +277,104 @@ public class DataController {
             }
         }
         return result;
+    }
+
+    public static long _dataPointsCount(
+            String url,
+            String username,
+            String password,
+            String database,
+            String timeseries,
+            String columns,
+            String timecolumn,
+            String starttime,
+            String endtime,
+            String conditions,
+            String query,
+            String format,
+            String ip,
+            String port,
+            String dbtype
+    ) throws SQLException {
+
+        Long res = 0L;
+        System.out.println(dbtype);
+
+        if(dbtype.toLowerCase().equals("iotdb")){
+            if(ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
+
+            Connection connection = IoTDBConnection.getConnection(url, username, password);
+            if (connection == null) {
+                System.out.println("get connection defeat");
+                return 0;
+            }
+            Statement statement = connection.createStatement();
+            String sql = query != null ? query :
+                    "SELECT count(" + columns +
+                    ") FROM " + database + "." + timeseries +
+                    (starttime == null ? "" : " WHERE time >= " + starttime) +
+                    (endtime   == null ? "" : " AND time < " + endtime) +
+                    (conditions == null ? "" : conditions);
+            System.out.println(sql);
+            ResultSet resultSet = statement.executeQuery(sql);
+
+            if (resultSet != null) {
+                while (resultSet.next()) {
+                    res = Long.valueOf(resultSet.getString(2));
+                }
+            }
+            statement.close();
+            connection.close();
+        }
+        else if(dbtype.toLowerCase().equals("postgresql") || dbtype.toLowerCase().equals("timescaledb")){
+            if(ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
+
+            PGConnection pgtool = new PGConnection(url+database, username, password);
+            Connection connection = pgtool.getConn();
+            if (connection == null) {
+                System.out.println("get connection defeat");
+                return res;
+            }
+            String sql = query != null ? query :
+                    "SELECT " + "count(" + columns +
+                    ") FROM " + timeseries +
+                    (starttime == null ? "" : " WHERE time >= '" + starttime + "'") +
+                    (endtime   == null ? "" : " AND time < '" + endtime + "'") +
+                    (conditions == null ? "" : " " + conditions);
+            System.out.println(sql);
+            sql = sql.replace("time", timecolumn);
+            ResultSet resultSet = pgtool.query(connection, sql);
+
+            if (resultSet != null) {
+                while (resultSet.next()) {
+                    res = Long.valueOf(resultSet.getString(1));
+                }
+            }
+            connection.close();
+        }
+        else if(dbtype.toLowerCase().equals("influxdb")){
+            if(ip != null && port != null) url = String.format("http://%s:%s/", ip, port);
+
+            InfluxDBConnection influxDBConnection = new InfluxDBConnection(url, username, password, database, null);
+            String sql = query != null ? query :
+                    "SELECT count(" + columns +
+                    ") FROM " + timeseries +
+                    (starttime == null ? "" : " WHERE time >= '" + starttime) +
+                    (endtime   == null ? "" : "' AND time < '" + endtime) + "' " +
+                    (conditions == null ? "" : conditions) + ";";
+            System.out.println(sql);
+            QueryResult queryResult = influxDBConnection.query(sql);
+
+            for(QueryResult.Result result : queryResult.getResults()){
+                for(QueryResult.Series series : result.getSeries()){
+                    for(List<Object> objects :series.getValues()){
+                            res = Double.valueOf(objects.get(1).toString()).longValue();
+                    }
+                }
+            }
+            influxDBConnection.close();
+        }
+
+        return res;
     }
 }

@@ -41,9 +41,9 @@ public class SampleController {
         timeseries = timeseries.replace("\"", "");
         columns = columns.replace("\"", "");
         timecolumn = timecolumn.replace("\"", "");
-        starttime = starttime == null ? null : starttime.replace("\"", "");
-        endtime = endtime == null ? null :endtime.replace("\"", "");
-        conditions = conditions == null ? null : conditions.replace("\"", "");
+        starttime = starttime == null ? "1971-01-01 00:00:00" : starttime.replace("\"", "");
+        endtime = endtime == null ? "2099-01-01 00:00:00" : endtime.replace("\"", "");
+        conditions = conditions == null ? "" : conditions.replace("\"", "");
         format = format.replace("\"", "");
         dbtype = dbtype.replace("\"", "");
         sample = sample.replace("\"", "");
@@ -75,24 +75,48 @@ public class SampleController {
             Double timeLimit,
             Double valueLimit) throws SQLException {
 
-        // 先根据采样算子分桶，"simpleXXX"为等间隔分桶，否则为自适应分桶
-        List<Bucket> buckets =
-            sample.contains("simple") ?
-            BucketsController._intervals(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, amount, dbtype) :
-            BucketsController._buckets(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, amount, dbtype, timeLimit, valueLimit);
-
-        SamplingOperator samplingOperator;
-
-        if(sample.contains("aggregation")) samplingOperator = new Aggregation();
-        else if(sample.contains("random")) samplingOperator = new Sample();
-        else if(sample.contains("outlier")) samplingOperator = new Outlier();
-        else samplingOperator = new M4();
+        List<Map<String, Object>> res = new ArrayList<>();
 
         String iotdbLabel = database + "." + timeseries + "." +columns;
         String label = dbtype.equals("iotdb") ? iotdbLabel : columns;
         String timelabel = "time";
 
-        List<Map<String, Object>> res =  samplingOperator.sample(buckets, timelabel, label);
+        SamplingOperator samplingOperator;
+        if(sample.contains("aggregation")) samplingOperator = new Aggregation();
+        else if(sample.contains("random")) samplingOperator = new Sample();
+        else if(sample.contains("outlier")) samplingOperator = new Outlier();
+        else samplingOperator = new M4();
+
+
+
+        long dataPointCount = DataController._dataPointsCount(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, dbtype);
+
+        long freememery = Runtime.getRuntime().freeMemory();
+        long batchLimit = freememery * 500000L / 10000000000L;
+        System.out.println("batchLimit" + batchLimit);
+        if(!conditions.contains("limit")) conditions = conditions + " limit " + batchLimit;
+
+        amount = (int)(amount * batchLimit / dataPointCount);
+        System.out.println("amount" + amount);
+
+        String latestTime = starttime;
+
+        while (true){
+            // 先根据采样算子分桶，"simpleXXX"为等间隔分桶，否则为自适应分桶
+            List<Bucket> buckets =
+                sample.contains("simple") ?
+                BucketsController._intervals(url, username, password, database, timeseries, columns, timecolumn, latestTime, endtime, conditions, query, format, ip, port, amount, dbtype) :
+                BucketsController._buckets(url, username, password, database, timeseries, columns, timecolumn, latestTime, endtime, conditions, query, format, ip, port, amount, dbtype, timeLimit, valueLimit);
+            // 无新数据，数据已经消费完成
+            if(buckets == null) break;
+            List<Map<String, Object>> lastBucket = buckets.get(buckets.size()-1).getDataPoints();
+            String newestTime = lastBucket.get(lastBucket.size()-1).get("time").toString().substring(0, 19);
+            // 最新数据点时间没有改变，数据已经消费完成
+            if(latestTime.equals(newestTime)) break;
+            else latestTime = newestTime;
+
+            res.addAll(samplingOperator.sample(buckets, timelabel, label));
+        }
 
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();
