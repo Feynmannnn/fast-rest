@@ -74,7 +74,7 @@ public class ColumnController {
             connection.close();
             return columns;
         }
-        else if(dbtype.toLowerCase().equals("pg")){
+        else if(dbtype.toLowerCase().equals("timescaledb") || dbtype.toLowerCase().equals("postgresql")){
             if(ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
 
             PGConnection pgtool = new PGConnection(url+database, username, password);

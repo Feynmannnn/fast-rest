@@ -62,7 +62,7 @@ public class StorageGroupController {
             connection.close();
             return storageGroup;
         }
-        else if(dbtype.toLowerCase().equals("pg")){
+        else if(dbtype.toLowerCase().equals("timescaledb") || dbtype.toLowerCase().equals("postgresql")){
             if(ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
             PGConnection pgtool = new PGConnection(url, username, password);
             Connection connection = pgtool.getConn();

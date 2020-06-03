@@ -58,7 +58,7 @@ public class LayerController {
         if(dbtype.toLowerCase().equals("iotdb")) {
             if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
         }
-        else if(dbtype.toLowerCase().equals("pg")) {
+        else if(dbtype.toLowerCase().equals("timescaledb") || dbtype.toLowerCase().equals("postgresql")) {
             if (ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
         }
         else if(dbtype.toLowerCase().equals("influxdb")) {

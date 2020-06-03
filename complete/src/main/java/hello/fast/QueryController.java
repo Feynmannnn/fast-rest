@@ -57,7 +57,7 @@ public class QueryController {
         if(dbtype.toLowerCase().equals("iotdb")) {
             if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
         }
-        else if(dbtype.toLowerCase().equals("pg")) {
+        else if(dbtype.toLowerCase().equals("timescaledb") || dbtype.toLowerCase().equals("postgresql")) {
             if (ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
         }
         else if(dbtype.toLowerCase().equals("influxdb")) {
@@ -97,11 +97,11 @@ public class QueryController {
             System.out.println(tableName);
             if(!hit){
                 res = new ArrayList<>(DataController._dataPoints(
-                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", "time", starttime, endtime, null, null, "map", null, null, "pg"));
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", "time", starttime, endtime, null, null, "map", null, null, "postgresql"));
             }
             else{
                 res.addAll(DataController._dataPoints(
-                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns, "time", starttime, endtime, null, null, "map", null, null, "pg"));
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns, "time", starttime, endtime, null, null, "map", null, null, "postgresql"));
             }
             System.out.println("res.size()" + res.size());
             if (res.size() >= amount) {
@@ -111,7 +111,7 @@ public class QueryController {
             }
         }
 
-        if(!hit) res = DataController._dataPoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, null, null, format, ip, port, dbtype);
+        if(!hit) res = DataController._dataPoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, " limit 10000", null, format, ip, port, dbtype);
 
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();
@@ -164,7 +164,7 @@ public class QueryController {
         if(dbtype.toLowerCase().equals("iotdb")) {
             if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
         }
-        else if(dbtype.toLowerCase().equals("pg")) {
+        else if(dbtype.toLowerCase().equals("timescaledb") || dbtype.toLowerCase().equals("postgresql")) {
             if (ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
         }
         else if(dbtype.toLowerCase().equals("influxdb")) {
@@ -203,11 +203,11 @@ public class QueryController {
             System.out.println(tableName);
             if(!hit){
                 res = new ArrayList<>(DataController._dataPoints(
-                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", "time", starttime, endtime, null, null, "map", null, null, "pg"));
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", "time", starttime, endtime, null, null, "map", null, null, "postgresql"));
             }
             else {
                 res.addAll(DataController._dataPoints(
-                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", "time", starttime, endtime, null, null, "map", null, null, "pg"));
+                    innerUrl, innerUserName, innerPassword, database.replace(".", "_"), tableName, columns + ", weight, error, area", "time", starttime, endtime, null, null, "map", null, null, "postgresql"));
             }
             System.out.println("res.size()" + res.size());
 
@@ -228,7 +228,7 @@ public class QueryController {
         }
 
         // 找不到合适的样本，查询原始数据
-        if(!hit) res = DataController._dataPoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, null, null, format, ip, port, dbtype);
+        if(!hit) res = DataController._dataPoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, " limit 10000", null, format, ip, port, dbtype);
 
         return res;
     }
@@ -236,7 +236,7 @@ public class QueryController {
     // 数据源对应的订阅数据表
     static String[] subTables(String url, String innerurl, String username, String password, String database, String timeseries, String columns) throws SQLException {
         try{
-            List<TimeSeries> timeSeries = new TimeSeriesController().timeSeries(innerurl, username, password, database.replace(".", "_"), null, null, "pg");
+            List<TimeSeries> timeSeries = new TimeSeriesController().timeSeries(innerurl, username, password, database.replace(".", "_"), null, null, "postgresql");
             int n = timeSeries.size();
             String[] res = new String[n];
             String tableName = timeseries;

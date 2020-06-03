@@ -93,7 +93,7 @@ public class SampleController {
         long dataPointCount = DataController._dataPointsCount(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, dbtype);
 
         long freememery = Runtime.getRuntime().freeMemory();
-        long batchLimit = freememery * 20000L;
+        long batchLimit = freememery / 20000L;
         if(!conditions.contains("limit")) conditions = conditions + " limit " + batchLimit;
         amount = (int)(amount * batchLimit / dataPointCount);
 

@@ -411,7 +411,7 @@ public class LayerThread extends Thread{
                 String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
                 String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
                 System.out.println("kick off the level " + (level +1) + "<<<<<<!!!!!!!");
-                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, timecolumn, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "pg", timeLimit * ratio, valueLimit, batchlimit, sampleQueue, bucketSum * ratio / 2);
+                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, timecolumn, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "postgresql", timeLimit * ratio, valueLimit, batchlimit, sampleQueue, bucketSum * ratio / 2);
                 pgsubscribeThread.start();
             }
 
