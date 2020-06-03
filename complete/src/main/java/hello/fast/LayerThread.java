@@ -53,7 +53,7 @@ public class LayerThread extends Thread{
     private BlockingQueue<Map<String, Object>> sampleQueue;
     private Long bucketSum;
 
-    LayerThread(String url, String username, String password, String database, String timeseries, String columns, String timecolumn, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double timeLimit, Double valueLimit, Long batchlimit, BlockingQueue<Map<String, Object>> dataQueue, Long bucketSum){
+    public LayerThread(String url, String username, String password, String database, String timeseries, String columns, String timecolumn, String starttime, String endtime, String TYPE, Integer ratio, String subId, Integer level, String sample, String dbtype, Double timeLimit, Double valueLimit, Long batchlimit, BlockingQueue<Map<String, Object>> dataQueue, Long bucketSum){
         this.url = url;
         this.username = username;
         this.password = password;

@@ -34,7 +34,7 @@ public class QueryController {
             @RequestParam(value="timecolumn", defaultValue = "time") String timecolumn,
             @RequestParam(value="starttime", required = false) String starttime,
             @RequestParam(value="endtime", required = false) String endtime,
-            @RequestParam(value="amount", required = false) Long amount,
+            @RequestParam(value="amount", defaultValue = "2000") Long amount,
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,

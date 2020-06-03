@@ -13,9 +13,11 @@ import java.util.Map;
 public class DemoDataThread extends Thread {
 
     private String database;
+    private int batchSize;
 
-    DemoDataThread(String database){
+    DemoDataThread(String database, Integer batchSize){
         this.database = database;
+        this.batchSize = batchSize;
     }
 
     @Override
@@ -34,9 +36,6 @@ public class DemoDataThread extends Thread {
         String ip = null;
         String port = null;
         String dbtype = "iotdb";
-
-        int batchSize = 100;
-
 
         List<Map<String, Object>> datapoints = new ArrayList<>();
         try {
@@ -92,7 +91,7 @@ public class DemoDataThread extends Thread {
         int index = 0;
         long round = 0;
         String insertSql = "insert into %s.%s(timestamp, %s) values(%s, %s);";
-        long time = System.currentTimeMillis();
+        long time;
         String value;
 
         while (round < 1000){
@@ -100,7 +99,7 @@ public class DemoDataThread extends Thread {
             long loopStartTime = System.currentTimeMillis();
 
             for(int i = 0; i < 10; i++){
-                long batchStartTime = System.currentTimeMillis();
+                long batchStartTime = System.nanoTime();
                 time = batchStartTime;
                 for(int j = 0; j < batchSize; j++){
                     Map<String, Object> p = datapoints.get(index);

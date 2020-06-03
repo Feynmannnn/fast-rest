@@ -30,7 +30,7 @@ public class WeightController {
             @RequestParam(value="format", defaultValue = "map") String format,
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
-            @RequestParam(value="amount", required = false) Integer amount,
+            @RequestParam(value="amount", defaultValue = "2000") Integer amount,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="timeLimit", required = false) Double timeLimit,
             @RequestParam(value="valueLimit", required = false) Double valueLimit

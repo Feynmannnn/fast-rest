@@ -32,8 +32,8 @@ public class LayerController {
             @RequestParam(value="startTime", defaultValue = "1971-01-01 00:00:00") String starttime,
             @RequestParam(value="endTime", required = false) String endtime,
             @RequestParam(value="sample") String sample,
-            @RequestParam(value="percent", required = false) Double percent,
-            @RequestParam(value="alpha", required = false) Double alpha,
+            @RequestParam(value="timeLimit", required = false) Double timeLimit,
+            @RequestParam(value="valueLimit", required = false) Double valueLimit,
             @RequestParam(value="ratio", defaultValue = "10") Integer ratio,
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
@@ -128,7 +128,7 @@ public class LayerController {
 
         System.out.println(TYPE);
 
-        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, TYPE, ratio, subId, 0, sample, dbtype, percent, alpha, batchlimit,null, null);
+        LayerThread subscribeThread = new LayerThread(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, TYPE, ratio, subId, 0, sample, dbtype, timeLimit, valueLimit, batchlimit,null, null);
         subscribeThread.start();
 
         return subId;
