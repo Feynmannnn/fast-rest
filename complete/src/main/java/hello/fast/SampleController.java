@@ -115,6 +115,9 @@ public class SampleController {
             else latestTime = newestTime;
 
             res.addAll(samplingOperator.sample(buckets, timelabel, label));
+
+            // 特殊判断：一次就可以获取所有数据
+            if(dataPointCount < batchLimit) break;
         }
 
         if(format.equals("map")) return res;
