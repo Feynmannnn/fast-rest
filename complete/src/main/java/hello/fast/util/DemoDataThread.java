@@ -94,16 +94,19 @@ public class DemoDataThread extends Thread {
         long time;
         String value;
 
-        while (round < 1000){
+        long timeInterval = 100000000L / batchSize; // 100ms 分配给 batch 中各个数据
+        System.out.println("timeInterval:" + timeInterval);
+
+        while (round < 10){
 
             long loopStartTime = System.currentTimeMillis();
 
             for(int i = 0; i < 10; i++){
-                long batchStartTime = System.nanoTime();
-                time = batchStartTime;
+                long batchStartTime = System.currentTimeMillis();
+                time = batchStartTime * 1000000L;
                 for(int j = 0; j < batchSize; j++){
                     Map<String, Object> p = datapoints.get(index);
-                    time += 1L;
+                    time += timeInterval;
                     value = p.get(label).toString();
                     try {
                         statement.addBatch(String.format(insertSql, storageGroup, timeseries, columns, time, value));
@@ -117,7 +120,7 @@ public class DemoDataThread extends Thread {
                         round++;
                     }
                 }
-                // send patch insert sql
+                // send batch insert sql
                 try {
                     statement.executeBatch();
                     statement.clearBatch();

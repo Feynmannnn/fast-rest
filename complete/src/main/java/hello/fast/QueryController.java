@@ -116,12 +116,11 @@ public class QueryController {
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();
         for(Map<String, Object> map : res){
-            Object time = map.get("Time");
             for(Map.Entry<String, Object> entry : map.entrySet()){
                 String mapKey = entry.getKey();
                 if(mapKey.equals("Time")) continue;
                 Map<String, Object> m = new HashMap<>();
-                m.put("time", time);
+                m.put("time", map.get("Time"));
                 m.put("label", mapKey);
                 m.put("value", entry.getValue());
                 result.add(m);

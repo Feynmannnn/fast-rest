@@ -11,8 +11,8 @@ public class ErrorController {
     private static Comparator<Map<String, Object>> sampleComparator = new Comparator<Map<String, Object>>(){
         @Override
         public int compare(Map<String, Object> sampleDataPoint1, Map<String, Object> sampleDataPoint2){
-            long t1 = (Timestamp.valueOf(sampleDataPoint1.get("time").toString())).getTime();
-            long t2 = (Timestamp.valueOf(sampleDataPoint2.get("time").toString())).getTime();
+            long t1 = (long)sampleDataPoint1.get("timestamp");
+            long t2 = (long)sampleDataPoint2.get("timestamp");
             return Math.round(t1-t2);
         }
     };
@@ -29,9 +29,9 @@ public class ErrorController {
         for(int i = 1; i < sample.size(); i++){
             // 将时间与数值间隔转化为double类型以便计算
             double a0, a1;
-            Long a0L = (Timestamp.valueOf(sample.get(i-1).get("time").toString())).getTime();
+            Long a0L = (long)sample.get(i-1).get("timestamp");
             a0 = a0L.doubleValue();
-            Long a1L = (Timestamp.valueOf(sample.get(i).get("time").toString())).getTime();
+            Long a1L = (long)sample.get(i).get("timestamp");
             a1 = a1L.doubleValue();
 
             double b0, b1;
@@ -49,7 +49,7 @@ public class ErrorController {
 
             // 找到每两个样本点之间对应的原始数据
             for(newIndex = lastIndex; newIndex < data.size(); newIndex++){
-                if((Timestamp.valueOf(data.get(newIndex).get("time").toString())).getTime() > a1L) break;
+                if((long)data.get(newIndex).get("timestamp") > a1L) break;
             }
 
             double error = 0.0;
@@ -60,9 +60,9 @@ public class ErrorController {
             for(int j = lastIndex; j < newIndex; j++){
                 // 将时间与数值间隔转化为double类型以便计算
                 double x0, x1;
-                Long x0L = (Timestamp.valueOf(data.get(j-1).get("time").toString())).getTime();
+                Long x0L = (long)data.get(j-1).get("timestamp");
                 x0 = x0L.doubleValue();
-                Long x1L = (Timestamp.valueOf(data.get(j).get("time").toString())).getTime();
+                Long x1L = (long)data.get(j).get("timestamp");
                 x1 = x1L.doubleValue();
 
                 double y0, y1;

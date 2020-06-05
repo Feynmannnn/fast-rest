@@ -111,8 +111,8 @@ public class BucketsController {
 
         List<Map<String, Object>> dataPoints = new ArrayList<>(linkedDataPoints);
 
-        Long firstTimestamp = (Timestamp.valueOf(dataPoints.get(0).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
-        Long lastTimestamp = (Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+        Long firstTimestamp = (long)dataPoints.get(0).get("timestamp");
+        Long lastTimestamp = (long)dataPoints.get(dataPoints.size()-1).get("timestamp");
         Long timestampRange = lastTimestamp - firstTimestamp;
         Long timeinteval = timestampRange / amount * 4;
 
@@ -127,7 +127,7 @@ public class BucketsController {
         int n = dataPoints.size();
         lastTimestamp = firstTimestamp + timeinteval;
         while (p < n){
-            Long dataTimestamp = (Timestamp.valueOf(dataPoints.get(p).get("time").toString().replace("T", " ").replace("Z", ""))).getTime();
+            Long dataTimestamp = (long)dataPoints.get(p).get("timestamp");
             if(dataTimestamp > lastTimestamp){
                 buckets.add(new Bucket(dataPoints.subList(q, p)));
                 q = p;

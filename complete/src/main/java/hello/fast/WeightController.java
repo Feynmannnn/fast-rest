@@ -100,10 +100,10 @@ public class WeightController {
         
         long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
         for (Map<String, Object> point : dataPoints) {
-            Date t = (Timestamp.valueOf(point.get(timelabel).toString().replace("T", " ").replace("Z", "")));
-            Double weight = (t.getTime() - lastTimestamp) + 0.0;
+            long ts = (long)point.get("timestamp");
+            Double weight = (ts - lastTimestamp) + 0.0;
             timeWeights.add(weight);
-            lastTimestamp = t.getTime();
+            lastTimestamp = ts;
         }
 
         Object lastValue = dataPoints.get(0).get(label);

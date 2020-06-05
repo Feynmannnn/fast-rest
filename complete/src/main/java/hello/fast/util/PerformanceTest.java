@@ -64,9 +64,9 @@ public class PerformanceTest {
             List<Map<String, Object>> dataPoints = DataController._dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, null, null, "map", null, null, "iotdb");;
             List<Map<String, Object>> subSamplePoints = new QueryController().publish(url, username, password, database, timeseries, columns, "time", starttime, endtime, 500L, null, null, "iotdb", "map");
             List<Map<String, Object>> samplePoints = new SampleController().dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, null, null, "map", null, null, 500, "iotdb", "m4", null, null);
-            long rawDataTime = Timestamp.valueOf(dataPoints.get(dataPoints.size()-1).get("time").toString()).getTime();
-            long sampleTime = Timestamp.valueOf(subSamplePoints.get(subSamplePoints.size()-1).get("time").toString()).getTime();
-            long subSampleTime = Timestamp.valueOf(samplePoints.get(samplePoints.size()-1).get("time").toString()).getTime();
+            long rawDataTime = (long)dataPoints.get(dataPoints.size()-1).get("timestamp");
+            long sampleTime = (long)dataPoints.get(subSamplePoints.size()-1).get("timestamp");
+            long subSampleTime = (long)dataPoints.get(samplePoints.size()-1).get("timestamp");
 
             sampleLatency += rawDataTime - sampleTime;
             subLatency += rawDataTime - subSampleTime;

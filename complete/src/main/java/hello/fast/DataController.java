@@ -4,8 +4,10 @@ import hello.fast.source.InfluxDBConnection;
 import hello.fast.source.IoTDBConnection;
 import hello.fast.source.PGConnection;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.sql.*;
 
@@ -13,6 +15,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.influxdb.dto.QueryResult;
+import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,8 +29,8 @@ public class DataController {
     private static Comparator<Map<String, Object>> sampleComparator = new Comparator<Map<String, Object>>(){
         @Override
         public int compare(Map<String, Object> sampleDataPoint1, Map<String, Object> sampleDataPoint2){
-            long t1 = (Timestamp.valueOf(sampleDataPoint1.get("time").toString())).getTime();
-            long t2 = (Timestamp.valueOf(sampleDataPoint2.get("time").toString())).getTime();
+            long t1 = (long)sampleDataPoint1.get("timestamp");
+            long t2 = (long)sampleDataPoint2.get("timestamp");
             return Math.round(t1-t2);
         }
     };
@@ -94,7 +97,7 @@ public class DataController {
         if(dbtype.toLowerCase().equals("iotdb")){
             if(ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
 
-            Connection connection = IoTDBConnection.getConnection(url, username, password);
+            org.apache.iotdb.jdbc.IoTDBConnection connection = (org.apache.iotdb.jdbc.IoTDBConnection) IoTDBConnection.getConnection(url, username, password);
             if (connection == null) {
                 System.out.println("get connection defeat");
                 return res;
@@ -131,8 +134,9 @@ public class DataController {
                             map.put("timestamp", resultSet.getTime(i).getTime());
                         }
                         else if(Types.TIMESTAMP == type) {
-                            map.put("time", resultSet.getTimestamp(i));
-                            map.put("timestamp", resultSet.getTimestamp(i).getTime());
+                            long timestamp = resultSet.getLong(i);
+                            map.put("timestamp", timestamp);
+                            map.put("time", new Timestamp(timestamp/1000000L).toString() + (timestamp%1000000L));
                         }
                         else map.put(label, resultSet.getString(i));
                     }
@@ -161,6 +165,7 @@ public class DataController {
             sql = sql.replace("time", timecolumn);
             ResultSet resultSet = pgtool.query(connection, sql);
 
+
             if (resultSet != null) {
                 final ResultSetMetaData metaData = resultSet.getMetaData();
                 final int columnCount = metaData.getColumnCount();
@@ -184,8 +189,8 @@ public class DataController {
                             map.put("timestamp", resultSet.getTime(i).getTime());
                         }
                         else if(Types.TIMESTAMP == type) {
-                            map.put("time", resultSet.getTimestamp(i));
-                            map.put("timestamp", resultSet.getTimestamp(i).getTime());
+                            map.put("time", resultSet.getString(i));
+                            map.put("timestamp", resultSet.getTimestamp(i).getTime() * 1000000L + LocalDateTime.parse(resultSet.getString(i).replace(" ", "T")).getNano() % 1000000L);
                         }
                         else map.put(label, resultSet.getString(i));
                     }
@@ -202,10 +207,12 @@ public class DataController {
                     "SELECT " + columns +
                     " FROM " + timeseries +
                     (starttime == null ? "" : " WHERE time >= '" + starttime) +
-                    (endtime   == null ? "" : "' AND time < '" + endtime) + "' " +
+                    (endtime   == null ? "" : ("' AND time < '" + endtime) + "' ") +
                     (conditions == null ? "" : conditions) + ";";
             System.out.println(sql);
             QueryResult queryResult = influxDBConnection.query(sql);
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
             for(QueryResult.Result result : queryResult.getResults()){
                 for(QueryResult.Series series : result.getSeries()){
@@ -214,7 +221,13 @@ public class DataController {
                         Map<String, Object> map = new HashMap<>();
                         for(int i = 0; i < objects.size(); i++){
                             if(cols.get(i).equals("time")) {
-                                map.put(cols.get(i), objects.get(i).toString().replace("T", " ").replace("Z", ""));
+                                String time = objects.get(i).toString().replace("T", " ").replace("Z", "");
+                                map.put("time", time);
+                                try {
+                                    map.put("timestamp", sdf.parse(time.substring(0,19)).getTime() * 1000000L + LocalDateTime.parse(time.replace(" ", "T")).getNano());
+                                } catch (ParseException e) {
+                                    e.printStackTrace();
+                                }
                             }
                             else map.put(cols.get(i), objects.get(i));
                         }
@@ -231,7 +244,7 @@ public class DataController {
             System.out.println(timeseries);
             System.out.println(columns);
 
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+
 
             Properties props = new Properties();
             props.put("bootstrap.servers", url);
@@ -250,7 +263,7 @@ public class DataController {
             for (ConsumerRecord<Long, Double> record : records) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("timestamp", record.key());
-                map.put("time", sdf.format(record.key()).substring(0,23));
+                map.put("time", new Timestamp(record.key()/1000000L).toString() + (record.key()%1000000L));
                 map.put(columns.toLowerCase(), record.value());
                 res.add(map);
             }
@@ -264,12 +277,11 @@ public class DataController {
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new ArrayList<>();
         for(Map<String, Object> map : res){
-            Object time = map.get("time");
             for(Map.Entry<String, Object> entry : map.entrySet()){
                 String mapKey = entry.getKey();
                 if(mapKey.equals("time")) continue;
                 Map<String, Object> m = new HashMap<>();
-                m.put("time", time);
+                m.put("time", map.get("time"));
                 m.put("label", mapKey);
                 m.put("value", entry.getValue());
                 result.add(m);

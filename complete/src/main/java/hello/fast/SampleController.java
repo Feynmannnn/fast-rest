@@ -110,7 +110,7 @@ public class SampleController {
             if(buckets == null) break;
             // 最新数据点时间没有改变，数据已经消费完成
             List<Map<String, Object>> lastBucket = buckets.get(buckets.size()-1).getDataPoints();
-            String newestTime = lastBucket.get(lastBucket.size()-1).get("time").toString().substring(0, 19);
+            String newestTime = lastBucket.get(lastBucket.size()-1).get("time").toString().substring(0, 23);
             if(latestTime.equals(newestTime)) break;
             else latestTime = newestTime;
 
@@ -123,12 +123,11 @@ public class SampleController {
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new LinkedList<>();
         for(Map<String, Object> map : res){
-            Object time = map.get("time");
             for(Map.Entry<String, Object> entry : map.entrySet()){
                 String mapKey = entry.getKey();
                 if(mapKey.equals("time")) continue;
                 Map<String, Object> m = new HashMap<>();
-                m.put("time", time);
+                m.put("time", map.get("time"));
                 m.put("label", mapKey);
                 m.put("value", entry.getValue());
                 result.add(m);
