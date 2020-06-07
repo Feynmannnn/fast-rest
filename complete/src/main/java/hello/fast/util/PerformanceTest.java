@@ -9,21 +9,22 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 性能测试类，测试吞吐量与性能延迟
+ * database: 测试数据所写入的数据库名称
+ * batch：每秒钟写入多少批数据
+ * batchSize：每批写入数据数目
  */
 @RestController
 public class PerformanceTest {
     @RequestMapping("/latencytest")
     public String demo(
             @RequestParam(value="database") String database,
+            @RequestParam(value="batch") Integer batch,
             @RequestParam(value="batchSize") Integer batchSize
     ) throws Exception {
 
@@ -36,7 +37,7 @@ public class PerformanceTest {
 
         // 启动数据写入，写入速率为 batchSize * 10
         database = database.replace("\"", "");
-        DemoDataThread demoDataThread = new DemoDataThread(database, batchSize);
+        DemoDataThread demoDataThread = new DemoDataThread(database, batch, batchSize);
         demoDataThread.start();
 
         // 等待数据写入生成一部分历史数据
@@ -65,11 +66,11 @@ public class PerformanceTest {
 
             List<Map<String, Object>> subSamplePoints = new QueryController().publish(url, username, password, database, timeseries, columns, "time", starttime, endtime, 500L, null, null, "iotdb", "map");
             long subSampleTime = (long)subSamplePoints.get(subSamplePoints.size()-1).get("timestamp");
-            long rawDataTime = (System.currentTimeMillis()+100L) * 1000000;
+            long rawDataTime = (System.currentTimeMillis()+(1000/batch)) * 1000000;
             subLatency += rawDataTime - subSampleTime;
 
             List<Map<String, Object>> samplePoints = new SampleController().dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, null, null, "map", null, null, 500, "iotdb", "m4", null, null);
-            rawDataTime = (System.currentTimeMillis()+100L) * 1000000;
+            rawDataTime = (System.currentTimeMillis()+(1000/batch)) * 1000000;
             long sampleTime = (long)samplePoints.get(samplePoints.size()-1).get("timestamp");
             sampleLatency += rawDataTime - sampleTime;
 

@@ -14,10 +14,12 @@ public class DemoDataThread extends Thread {
 
     private String database;
     private int batchSize;
+    private int batch;
 
-    DemoDataThread(String database, Integer batchSize){
+    DemoDataThread(String database, Integer batch, Integer batchSize){
         this.database = database;
         this.batchSize = batchSize;
+        this.batch = batch;
     }
 
     @Override
@@ -94,14 +96,14 @@ public class DemoDataThread extends Thread {
         long time;
         String value;
 
-        long timeInterval = 100000000L / batchSize; // 100ms 分配给 batch 中各个数据
+        long timeInterval = 1000000000L / batch / batchSize; // 1s 分配给 batch 中各个数据
         System.out.println("timeInterval:" + timeInterval);
 
         while (round < 10){
 
             long loopStartTime = System.currentTimeMillis();
 
-            for(int i = 0; i < 10; i++){
+            for(int i = 0; i < batch; i++){
                 long batchStartTime = System.currentTimeMillis();
                 time = batchStartTime * 1000000L;
                 for(int j = 0; j < batchSize; j++){
@@ -129,7 +131,7 @@ public class DemoDataThread extends Thread {
                 }
 
                 try {
-                    Thread.sleep(Math.max(0, batchStartTime + 100 - System.currentTimeMillis()));
+                    Thread.sleep(Math.max(0, batchStartTime + (1000 / batch) - System.currentTimeMillis()));
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -137,7 +139,7 @@ public class DemoDataThread extends Thread {
             }
 
             Long usedTime = System.currentTimeMillis() - loopStartTime;
-            System.out.println(String.format("Throughput: %s, used time: %s, average: %s", throughput * 10, usedTime, batchSize * 10 * 1000 / usedTime));
+            System.out.println(String.format("Throughput: %s, used time: %s, average: %s", throughput, usedTime, batchSize * batch * 1000 / usedTime));
         }
     }
 }
