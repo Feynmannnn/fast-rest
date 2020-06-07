@@ -176,6 +176,8 @@ public class BucketsController {
     static List<Bucket> _buckets(List<Map<String, Object>> dataPoints, String timelabel, String label, Integer amount, Double timeLimit, Double valueLimit){
         List<Bucket> res = new ArrayList<>();
 
+        long t1 = System.currentTimeMillis();
+
         for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
         WeightController._weights(dataPoints, timelabel, label, amount, timeLimit, valueLimit);
         List<Double> weights = new ArrayList<>();
@@ -218,6 +220,8 @@ public class BucketsController {
                 else p.put("bucket", i);
             }
         }
+
+        System.out.println("BucketController: " + (System.currentTimeMillis() - t1) + "ms");
 
         return res;
     }

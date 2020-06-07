@@ -114,7 +114,11 @@ public class SampleController {
             if(latestTime.equals(newestTime)) break;
             else latestTime = newestTime;
 
+            long t1 = System.currentTimeMillis();
+
             res.addAll(samplingOperator.sample(buckets, timelabel, label));
+
+            System.out.println("SampleController: " + (System.currentTimeMillis() - t1) + "ms");
 
             // 特殊判断：一次就可以获取所有数据
             if(dataPointCount < batchLimit) break;

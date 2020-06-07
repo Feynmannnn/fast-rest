@@ -265,7 +265,7 @@ public class LayerThread extends Thread{
         for(Map<String, Object> s : sampleDataPoints) s.put(columns.toLowerCase(), s.get(label));
         sampleQueue.addAll(sampleDataPoints);
 
-        latestTime = buckets.get(buckets.size() - 1).getDataPoints().get(0).get("time").toString();
+        latestTime = buckets.get(buckets.size() - 1).getDataPoints().get(0).get("time").toString().substring(0,23);
 
         // keep sampling data
         while(!exit){
@@ -411,7 +411,7 @@ public class LayerThread extends Thread{
                 String Identifier = String.format("%s,%s,%s,%s,%s", url, database, tableName, columns, salt);
                 String newSubId = DigestUtils.md5DigestAsHex(Identifier.getBytes()).substring(0,8);
                 System.out.println("kick off the level " + (level +1) + "<<<<<<!!!!!!!");
-                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, timecolumn, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "postgresql", timeLimit * ratio, valueLimit, batchlimit, sampleQueue, bucketSum * ratio / 2);
+                LayerThread pgsubscribeThread = new LayerThread(url, username, password, database, tableName, columns, timecolumn, starttime, endtime, TYPE, ratio, newSubId, level+1, sample, "postgresql", timeLimit == null ? null : (timeLimit * ratio), valueLimit, batchlimit, sampleQueue, bucketSum * ratio / 2);
                 pgsubscribeThread.start();
             }
 
@@ -425,7 +425,7 @@ public class LayerThread extends Thread{
 
             // 单独处理最新桶，获得latestTime
             List<Map<String, Object>> newcomingData = buckets.get(buckets.size() - 1).getDataPoints();
-            latestTime = newcomingData.get(0).get("time").toString();
+            latestTime = newcomingData.get(0).get("time").toString().substring(0,23);
 
             // 采样终止条件：latestTime大于截止日期
             if(endtime != null && latestTime.compareTo(endtime) >= 0){

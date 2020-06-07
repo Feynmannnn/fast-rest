@@ -78,7 +78,7 @@ public class KafkaDataThread extends Thread {
                     time += 1L;
                     value = Double.valueOf(p.get(label).toString());
                     kafkaProducer.send(new ProducerRecord<>(this.database, time, value));
-                    System.out.println("datatime:"+time+" inserttime:"+System.currentTimeMillis());
+//                    System.out.println("datatime:"+time+" inserttime:"+System.currentTimeMillis());
                     index++;
                     throughput++;
                     if(index >= datapoints.size()){

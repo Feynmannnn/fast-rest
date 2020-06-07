@@ -107,7 +107,7 @@ public class QueryController {
             if (res.size() >= amount) {
                 hit = true;
                 // 找到对应层级后，以最新数据点为起始时间继续向下查询
-                starttime = res.get(res.size() - 1).get("time").toString();
+                starttime = res.get(res.size() - 1).get("time").toString().substring(0,23);
             }
         }
 
@@ -223,7 +223,7 @@ public class QueryController {
                 hit = true;
             }
 
-            if(hit) starttime = res.get(res.size() - 1).get("time").toString();
+            if(hit) starttime = res.get(res.size() - 1).get("time").toString().substring(0,23);
         }
 
         // 找不到合适的样本，查询原始数据

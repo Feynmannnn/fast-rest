@@ -95,6 +95,8 @@ public class WeightController {
         List<Double> values = new ArrayList<>();
         List<Double> grads = new ArrayList<>();
 
+        long t = System.currentTimeMillis();
+
         boolean timeLimitIsNull = timeLimit == null;
         boolean valueLimitIsNull = valueLimit == null;
         
@@ -130,7 +132,6 @@ public class WeightController {
 
         if(timeLimitIsNull){
             timeLimit = OutlierDetection.getMean(timeWeights) + 3 * OutlierDetection.getStdDev(timeWeights);
-            System.out.println("timeLimit" + timeLimit);
             if(timeLimit <= 0) {
                 Double[] timeWeightStat = timeWeights.toArray(new Double[0]);
                 Arrays.sort(timeWeightStat);
@@ -141,7 +142,6 @@ public class WeightController {
         if(valueLimitIsNull){
             
             valueLimit = 3 * OutlierDetection.getStdDev(values);
-            System.out.println("valueLimit" + valueLimit);
             if(valueLimit <= 0) {
                 Double[] valueWeightStat = valueWeights.toArray(new Double[0]);
                 Arrays.sort(valueWeightStat);
@@ -149,8 +149,8 @@ public class WeightController {
             }
         }
 
-        System.out.println("timeLimit" + timeLimit);
-        System.out.println("valueLimit" + valueLimit);
+//        System.out.println("timeLimit" + timeLimit);
+//        System.out.println("valueLimit" + valueLimit);
 
         double grad = 0.0;
         for (int i = 1; i < dataPoints.size(); i++) {
@@ -181,5 +181,7 @@ public class WeightController {
         for (int i = 0; i < weights.size(); i++) {
             dataPoints.get(i).put("weight", weights.get(i));
         }
+
+        System.out.println("WeightController: " + (System.currentTimeMillis() - t) + "ms");
     }
 }

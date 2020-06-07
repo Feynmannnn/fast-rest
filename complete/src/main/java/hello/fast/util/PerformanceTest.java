@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.sql.SQLException;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -18,6 +19,7 @@ import java.util.Map;
 /**
  * 性能测试类，测试吞吐量与性能延迟
  */
+@RestController
 public class PerformanceTest {
     @RequestMapping("/latencytest")
     public String demo(
@@ -38,7 +40,7 @@ public class PerformanceTest {
         demoDataThread.start();
 
         // 等待数据写入生成一部分历史数据
-        Thread.sleep(10000);
+        Thread.sleep(5000);
 
         // 启动数据采样订阅
         String salt = "&%12345***&&%%$$#@1";
@@ -55,30 +57,33 @@ public class PerformanceTest {
         long subLatency = 0L;
 
 
-        for(int i = 0; i < 100; i++){
+        for(int i = 0; i < 10; i++){
 
-            SimpleDateFormat format =  new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); //设置格式
-            starttime = format.format(System.currentTimeMillis());                                //获得带格式的字符串
+            SimpleDateFormat format =  new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"); //设置格式
+            starttime = format.format(System.currentTimeMillis() - 1000L);                                //获得带格式的字符串
             String endtime = format.format(System.currentTimeMillis() + 2000L);                             //获得带格式的字符串
 
-            List<Map<String, Object>> dataPoints = DataController._dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, null, null, "map", null, null, "iotdb");;
             List<Map<String, Object>> subSamplePoints = new QueryController().publish(url, username, password, database, timeseries, columns, "time", starttime, endtime, 500L, null, null, "iotdb", "map");
-            List<Map<String, Object>> samplePoints = new SampleController().dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, null, null, "map", null, null, 500, "iotdb", "m4", null, null);
-            long rawDataTime = (long)dataPoints.get(dataPoints.size()-1).get("timestamp");
-            long sampleTime = (long)dataPoints.get(subSamplePoints.size()-1).get("timestamp");
-            long subSampleTime = (long)dataPoints.get(samplePoints.size()-1).get("timestamp");
-
-            sampleLatency += rawDataTime - sampleTime;
+            long subSampleTime = (long)subSamplePoints.get(subSamplePoints.size()-1).get("timestamp");
+            long rawDataTime = (System.currentTimeMillis()+100L) * 1000000;
             subLatency += rawDataTime - subSampleTime;
+
+            List<Map<String, Object>> samplePoints = new SampleController().dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, null, null, "map", null, null, 500, "iotdb", "m4", null, null);
+            rawDataTime = (System.currentTimeMillis()+100L) * 1000000;
+            long sampleTime = (long)samplePoints.get(samplePoints.size()-1).get("timestamp");
+            sampleLatency += rawDataTime - sampleTime;
 
             // 等待
             Thread.sleep(1000);
         }
 
-        sampleLatency /= 100;
-        subLatency /= 100;
+        // 取十次平均值，并转化为毫秒
+        sampleLatency /= 10 * 1000000;
+        subLatency /= 10 * 1000000;
 
+        demoDataThread.stop();
+        subscribeThread.stop();
 
-        return "sample latency:" + sampleLatency + "sub latency:" + subLatency;
+        return "sample latency:" + sampleLatency + "ms. sub latency:" + subLatency + "ms.";
     }
 }

@@ -93,6 +93,7 @@ public class DataController {
 
         List<Map<String, Object>> res = new ArrayList<>();
         System.out.println(dbtype);
+        long t1 = System.currentTimeMillis();
 
         if(dbtype.toLowerCase().equals("iotdb")){
             if(ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
@@ -125,18 +126,12 @@ public class DataController {
                         else if(Types.BOOLEAN == type) map.put(label, resultSet.getString(i));
                         else if(Types.FLOAT == type) map.put(label, resultSet.getFloat(i));
                         else if(Types.DOUBLE == type) map.put(label, resultSet.getDouble(i));
-                        else if(Types.DATE == type) {
-                            map.put("time", resultSet.getDate(i));
-                            map.put("timestamp", resultSet.getDate(i).getTime());
-                        }
-                        else if(Types.TIME == type) {
-                            map.put("time", resultSet.getTime(i));
-                            map.put("timestamp", resultSet.getTime(i).getTime());
-                        }
                         else if(Types.TIMESTAMP == type) {
                             long timestamp = resultSet.getLong(i);
+                            if(timestamp < 2000000000000L) timestamp *= 1000000L;
+                            else if(timestamp < 2000000000000000L) timestamp *= 1000L;
                             map.put("timestamp", timestamp);
-                            map.put("time", new Timestamp(timestamp/1000000L).toString() + (timestamp%1000000L));
+                            map.put("time", new Timestamp(timestamp/1000000L).toString() + String.format("%06d", timestamp%1000000L));
                         }
                         else map.put(label, resultSet.getString(i));
                     }
@@ -180,17 +175,9 @@ public class DataController {
                         else if(Types.FLOAT == type) map.put(label, resultSet.getFloat(i));
                         else if(Types.DOUBLE == type) map.put(label, resultSet.getDouble(i));
                         else if(Types.NUMERIC == type) map.put(label, resultSet.getDouble(i));
-                        else if(Types.DATE == type) {
-                            map.put("time", resultSet.getDate(i));
-                            map.put("timestamp", resultSet.getDate(i).getTime());
-                        }
-                        else if(Types.TIME == type) {
-                            map.put("time", resultSet.getTime(i));
-                            map.put("timestamp", resultSet.getTime(i).getTime());
-                        }
                         else if(Types.TIMESTAMP == type) {
                             map.put("time", resultSet.getString(i));
-                            map.put("timestamp", resultSet.getTimestamp(i).getTime() * 1000000L + LocalDateTime.parse(resultSet.getString(i).replace(" ", "T")).getNano() % 1000000L);
+                            map.put("timestamp", resultSet.getTimestamp(i).getTime() * 1000000L + LocalDateTime.parse(resultSet.getString(i).replace(" ", "T").replace("+08", "")).getNano() % 1000000L);
                         }
                         else map.put(label, resultSet.getString(i));
                     }
@@ -224,7 +211,7 @@ public class DataController {
                                 String time = objects.get(i).toString().replace("T", " ").replace("Z", "");
                                 map.put("time", time);
                                 try {
-                                    map.put("timestamp", sdf.parse(time.substring(0,19)).getTime() * 1000000L + LocalDateTime.parse(time.replace(" ", "T")).getNano());
+                                    map.put("timestamp", sdf.parse(time.substring(0,19)).getTime() * 1000000L + LocalDateTime.parse(time.replace(" ", "T").replace("+08", "")).getNano());
                                 } catch (ParseException e) {
                                     e.printStackTrace();
                                 }
@@ -273,6 +260,8 @@ public class DataController {
 
         // 部分数据源存在查询结果时间乱序问题
         res.sort(sampleComparator);
+
+        System.out.println("DataController: " + (System.currentTimeMillis() - t1) + "ms");
 
         if(format.equals("map")) return res;
         List<Map<String, Object>> result = new ArrayList<>();
