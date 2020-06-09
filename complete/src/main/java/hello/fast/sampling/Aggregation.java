@@ -2,10 +2,7 @@ package hello.fast.sampling;
 
 import hello.fast.obj.Bucket;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
 * 聚合采样算子，计算每个桶内的平均值返回
@@ -13,7 +10,7 @@ import java.util.Map;
 public class Aggregation implements SamplingOperator {
     @Override
     public List<Map<String, Object>> sample(List<Bucket> buckets, String timeLabel, String valueLabel) {
-        List<Map<String, Object>> res = new LinkedList<>();
+        List<Map<String, Object>> res = new ArrayList<>();
 
         for(Bucket bucket : buckets){
             List<Map<String, Object>> datapoints = bucket.getDataPoints();

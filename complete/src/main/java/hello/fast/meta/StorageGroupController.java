@@ -1,7 +1,7 @@
 package hello.fast.meta;
 
 import java.sql.*;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.influxdb.dto.QueryResult;
@@ -36,7 +36,7 @@ public class StorageGroupController {
         ip = ip == null ? null : ip.replace("\"", "");
         port = port == null ? null : port.replace("\"", "");
 
-        List<StorageGroup> storageGroup = new LinkedList<>();
+        List<StorageGroup> storageGroup = new ArrayList<>();
 
         if(dbtype.toLowerCase().equals("iotdb")){
             // 如果输入了IP与PORT参数，则URL参数被替换

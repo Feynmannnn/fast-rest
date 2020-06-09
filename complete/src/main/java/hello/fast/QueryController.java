@@ -67,6 +67,8 @@ public class QueryController {
             if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
         }
 
+        long t1 = System.currentTimeMillis();
+
         String config = "";
         try {
             BufferedReader br = new BufferedReader(new FileReader("fast.config"));
@@ -114,7 +116,7 @@ public class QueryController {
         if(!hit) res = DataController._dataPoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, " limit 10000", null, format, ip, port, dbtype);
 
         if(format.equals("map")) return res;
-        List<Map<String, Object>> result = new LinkedList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
         for(Map<String, Object> map : res){
             for(Map.Entry<String, Object> entry : map.entrySet()){
                 String mapKey = entry.getKey();
@@ -126,6 +128,9 @@ public class QueryController {
                 result.add(m);
             }
         }
+
+        System.out.println("QueryController: " + (System.currentTimeMillis() - t1) + "ms");
+
         return result;
     }
 
@@ -172,6 +177,8 @@ public class QueryController {
         else{
             if (ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
         }
+
+        long t1 = System.currentTimeMillis();
 
         String config = "";
         try {
@@ -228,6 +235,8 @@ public class QueryController {
 
         // 找不到合适的样本，查询原始数据
         if(!hit) res = DataController._dataPoints(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, " limit 10000", null, format, ip, port, dbtype);
+
+        System.out.println("ErrorQueryController: " + (System.currentTimeMillis() - t1) + "ms");
 
         return res;
     }

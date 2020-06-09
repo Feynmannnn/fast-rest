@@ -121,7 +121,7 @@ public class BucketsController {
         String timelabel = "time";
 
         for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
-        List<Bucket> buckets = new LinkedList<>();
+        List<Bucket> buckets = new ArrayList<>();
 
         int p = 0, q = 0;
         int n = dataPoints.size();
@@ -176,10 +176,11 @@ public class BucketsController {
     static List<Bucket> _buckets(List<Map<String, Object>> dataPoints, String timelabel, String label, Integer amount, Double timeLimit, Double valueLimit){
         List<Bucket> res = new ArrayList<>();
 
-        long t1 = System.currentTimeMillis();
-
         for(Map<String, Object> dataPoint : dataPoints) dataPoint.put(timelabel, dataPoint.get(timelabel).toString().replace("T", " "));
         WeightController._weights(dataPoints, timelabel, label, amount, timeLimit, valueLimit);
+
+        long t1 = System.currentTimeMillis();
+
         List<Double> weights = new ArrayList<>();
         for(Map<String, Object> dataPoint : dataPoints) weights.add((Double)dataPoint.get("weight"));
 

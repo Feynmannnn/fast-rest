@@ -10,7 +10,7 @@ import java.util.*;
 public class Sample implements SamplingOperator {
     @Override
     public List<Map<String, Object>> sample(List<Bucket> buckets, String timelabel, String label) {
-        List<Map<String, Object>> res = new LinkedList<>();
+        List<Map<String, Object>> res = new ArrayList<>();
 
         for(Bucket bucket : buckets){
             List<Map<String, Object>> datapoints = bucket.getDataPoints();

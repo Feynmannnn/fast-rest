@@ -1,7 +1,7 @@
 package hello.fast.meta;
 
+import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.influxdb.dto.QueryResult;
@@ -41,7 +41,7 @@ public class TimeSeriesController {
         ip = ip == null ? null : ip.replace("\"", "");
         port = port == null ? null : port.replace("\"", "");
 
-        List<TimeSeries> timeSeries = new LinkedList<>();
+        List<TimeSeries> timeSeries = new ArrayList<>();
 
         if(dbtype.toLowerCase().equals("iotdb")){
             // 如果输入了IP与PORT参数，则URL参数被替换

@@ -2,7 +2,7 @@ package hello.fast.sampling;
 
 import hello.fast.obj.Bucket;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -12,7 +12,7 @@ import java.util.Map;
 public class M4 implements SamplingOperator {
     @Override
     public List<Map<String, Object>> sample(List<Bucket> buckets, String timelabel, String label) {
-        List<Map<String, Object>> res = new LinkedList<>();
+        List<Map<String, Object>> res = new ArrayList<>();
 
         for(Bucket bucket : buckets){
             List<Map<String, Object>> datapoints = bucket.getDataPoints();

@@ -179,7 +179,7 @@ public class LayerThread extends Thread{
         List<Map<String, Object>> dataPoints = null;
         try {
             if(level > 0){
-                dataPoints = new LinkedList<>();
+                dataPoints = new ArrayList<>();
                 long k = Math.min(dataQueue.size(), batchlimit);
                 System.out.println("k = " + k);
                 for(int i = 0; i < k; i++){
@@ -249,7 +249,7 @@ public class LayerThread extends Thread{
         String bigSql;
         sampleDataPoints.sort(sampleComparator);
         ErrorController.lineError(dataPoints, sampleDataPoints, label, level == 0);
-        sqls = new LinkedList<>();
+        sqls = new ArrayList<>();
         for(Map<String, Object> map : sampleDataPoints){
             sqls.add(String.format(batchInsertFormat, tableName, columns, map.get("time").toString(), map.get("weight"), map.get("error"), map.get("area"), map.get(label)));
         }

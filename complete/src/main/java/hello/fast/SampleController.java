@@ -125,7 +125,7 @@ public class SampleController {
         }
 
         if(format.equals("map")) return res;
-        List<Map<String, Object>> result = new LinkedList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
         for(Map<String, Object> map : res){
             for(Map.Entry<String, Object> entry : map.entrySet()){
                 String mapKey = entry.getKey();
