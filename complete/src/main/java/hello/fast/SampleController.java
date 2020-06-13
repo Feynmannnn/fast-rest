@@ -2,6 +2,9 @@ package hello.fast;
 
 import hello.fast.obj.Bucket;
 import hello.fast.sampling.*;
+import org.apache.iotdb.rpc.IoTDBRPCException;
+import org.apache.iotdb.session.IoTDBSessionException;
+import org.apache.thrift.TException;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -76,7 +79,7 @@ public class SampleController {
             Integer amount,
             String dbtype,
             Double timeLimit,
-            Double valueLimit) throws SQLException {
+            Double valueLimit) throws SQLException, TException, IoTDBRPCException, IoTDBSessionException {
 
         List<Map<String, Object>> res = new ArrayList<>();
 
@@ -93,8 +96,9 @@ public class SampleController {
         long dataPointCount = DataController._dataPointsCount(url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, format, ip, port, dbtype);
 
         long freememery = Runtime.getRuntime().freeMemory();
-        long batchLimit = freememery / 20000L;
+        long batchLimit = freememery / 10000L;
         if(!conditions.contains("limit")) conditions = conditions + " limit " + batchLimit;
+        if(dbtype.equals("postgresql") || dbtype.equals("timescaledb")) conditions = " order by time " + conditions;
         amount = (int)(amount * batchLimit / dataPointCount);
 
         String latestTime = starttime;

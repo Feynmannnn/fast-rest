@@ -3,6 +3,9 @@ package hello.fast;
 import com.alibaba.fastjson.JSONObject;
 import hello.fast.meta.TimeSeries;
 import hello.fast.meta.TimeSeriesController;
+import org.apache.iotdb.rpc.IoTDBRPCException;
+import org.apache.iotdb.session.IoTDBSessionException;
+import org.apache.thrift.TException;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -39,7 +42,7 @@ public class QueryController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="format", defaultValue = "map") String format
-    ) throws SQLException {
+    ) throws SQLException, TException, IoTDBRPCException, IoTDBSessionException {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
@@ -150,7 +153,7 @@ public class QueryController {
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="format", defaultValue = "map") String format
-    ) throws SQLException {
+    ) throws SQLException, TException, IoTDBRPCException, IoTDBSessionException {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");

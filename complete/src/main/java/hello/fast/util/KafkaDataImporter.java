@@ -15,7 +15,7 @@ public class KafkaDataImporter {
             @RequestParam(value="database") String database
     ){
         database = database.replace("\"", "");
-        KafkaDataThread demoDataThread = new KafkaDataThread(database);
+        KafkaDataThread demoDataThread = new KafkaDataThread(database, 10, 1000);
         demoDataThread.start();
 
         return "kafka data started";

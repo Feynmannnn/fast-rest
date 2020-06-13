@@ -11,14 +11,26 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.sql.*;
 
+import org.apache.iotdb.rpc.IoTDBRPCException;
+import org.apache.iotdb.session.IoTDBSessionException;
+import org.apache.iotdb.tsfile.read.common.Field;
+import org.apache.iotdb.tsfile.read.common.RowRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.thrift.TException;
 import org.influxdb.dto.QueryResult;
-import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.iotdb.session.Session;
+import org.apache.iotdb.session.SessionDataSet;
 
 /**
 * 数据控制器，根据参数查询原始数据
@@ -52,7 +64,7 @@ public class DataController {
             @RequestParam(value="ip", required = false) String ip,
             @RequestParam(value="port", required = false) String port,
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype
-    ) throws SQLException {
+    ) throws SQLException, IoTDBSessionException, TException, IoTDBRPCException {
         // trim the '"' of the parameters
         url = url.replace("\"", "");
         username = username.replace("\"", "");
@@ -89,7 +101,7 @@ public class DataController {
             String ip,
             String port,
             String dbtype
-    ) throws SQLException {
+    ) throws SQLException, IoTDBSessionException, TException, IoTDBRPCException {
 
         List<Map<String, Object>> res = new ArrayList<>();
         System.out.println(dbtype);
@@ -138,8 +150,44 @@ public class DataController {
                     res.add(map);
                 }
             }
+            System.out.println(res.size());
             statement.close();
             connection.close();
+        }
+        else if(dbtype.toLowerCase().equals("session")) {
+            if(ip == null) ip = "127.0.0.1";
+            if(port == null) port = "6667";
+            Session session = new Session(ip, port, username, password);
+            session.open();
+
+            session.setStorageGroup(database);
+
+            String sql = query != null ? query :
+                    "SELECT " + columns +
+                    " FROM " + database + "." + timeseries +
+                    (starttime == null ? "" : " WHERE time >= " + starttime) +
+                    (endtime   == null ? "" : " AND time < " + endtime) +
+                    (conditions == null ? "" : conditions);
+            System.out.println(sql);
+
+            SessionDataSet dataSet;
+            dataSet = session.executeQueryStatement(sql);
+            while (dataSet.hasNext()) {
+                RowRecord data = dataSet.next();
+                Map<String, Object> map = new HashMap<>();
+                long timestamp = data.getTimestamp();
+                if(timestamp < 2000000000000L) timestamp *= 1000000L;
+                else if(timestamp < 2000000000000000L) timestamp *= 1000L;
+                map.put("timestamp", timestamp);
+                map.put("time", new Timestamp(timestamp/1000000L).toString() + String.format("%06d", timestamp%1000000L));
+                List<Field> fields = data.getFields();
+                map.put(columns, fields.get(0).getDoubleV());
+                res.add(map);
+            }
+            System.out.println(res.size());
+            dataSet.closeOperationHandle();
+            session.close();
+
         }
         else if(dbtype.toLowerCase().equals("postgresql") || dbtype.toLowerCase().equals("timescaledb")){
             if(ip != null && port != null) url = String.format("jdbc:postgresql://%s:%s/", ip, port);
@@ -193,8 +241,8 @@ public class DataController {
             String sql = query != null ? query :
                     "SELECT " + columns +
                     " FROM " + timeseries +
-                    (starttime == null ? "" : " WHERE time >= '" + starttime) +
-                    (endtime   == null ? "" : ("' AND time < '" + endtime) + "' ") +
+                    (starttime == null ? "" : (" WHERE time >= '" + starttime + "'")) +
+                    (endtime   == null ? "" : (" AND time < '" + endtime + "' ")) +
                     (conditions == null ? "" : conditions) + ";";
             System.out.println(sql);
             QueryResult queryResult = influxDBConnection.query(sql);
@@ -209,9 +257,11 @@ public class DataController {
                         for(int i = 0; i < objects.size(); i++){
                             if(cols.get(i).equals("time")) {
                                 String time = objects.get(i).toString().replace("T", " ").replace("Z", "");
-                                map.put("time", time);
                                 try {
-                                    map.put("timestamp", sdf.parse(time.substring(0,19)).getTime() * 1000000L + LocalDateTime.parse(time.replace(" ", "T").replace("+08", "")).getNano());
+                                    long timestamp = sdf.parse(time.substring(0,19)).getTime() * 1000000L + LocalDateTime.parse(time.replace(" ", "T").replace("+08", "")).getNano();
+                                    map.put("timestamp", timestamp);
+                                    time = sdf.format(new Date(timestamp / 1000000)) + "." + String.format("%09d", timestamp % 1000000000L);
+                                    map.put("time", time);
                                 } catch (ParseException e) {
                                     e.printStackTrace();
                                 }
@@ -231,7 +281,7 @@ public class DataController {
             System.out.println(timeseries);
             System.out.println(columns);
 
-
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
             Properties props = new Properties();
             props.put("bootstrap.servers", url);
@@ -245,12 +295,13 @@ public class DataController {
 
             KafkaConsumer<Long, Double> consumer = new KafkaConsumer<>(props);
             consumer.subscribe(Arrays.asList(timeseries));
-            ConsumerRecords<Long, Double> records = consumer.poll(Duration.ofMillis(100));
+            ConsumerRecords<Long, Double> records = consumer.poll(Duration.ofMillis(1000));
             System.out.println(records.count());
             for (ConsumerRecord<Long, Double> record : records) {
                 Map<String, Object> map = new HashMap<>();
+                long timestamp = record.key();
                 map.put("timestamp", record.key());
-                map.put("time", new Timestamp(record.key()/1000000L).toString() + (record.key()%1000000L));
+                map.put("time", sdf.format(new Date(timestamp / 1000000)) + "." + String.format("%09d", timestamp % 1000000000L));
                 map.put(columns.toLowerCase(), record.value());
                 res.add(map);
             }
@@ -300,7 +351,7 @@ public class DataController {
         Long res = 0L;
         System.out.println(dbtype);
 
-        if(dbtype.toLowerCase().equals("iotdb")){
+        if(dbtype.toLowerCase().equals("iotdb") || dbtype.toLowerCase().equals("session")){
             if(ip != null && port != null) url = String.format("jdbc:iotdb://%s:%s/", ip, port);
 
             Connection connection = IoTDBConnection.getConnection(url, username, password);
@@ -321,6 +372,7 @@ public class DataController {
             if (resultSet != null) {
                 while (resultSet.next()) {
                     res = Long.valueOf(resultSet.getString(2));
+                    System.out.println(res);
                 }
             }
             statement.close();

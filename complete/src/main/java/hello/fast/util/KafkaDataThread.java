@@ -1,8 +1,11 @@
 package hello.fast.util;
 
 import hello.fast.DataController;
+import org.apache.iotdb.rpc.IoTDBRPCException;
+import org.apache.iotdb.session.IoTDBSessionException;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.thrift.TException;
 
 import java.sql.*;
 import java.util.*;
@@ -10,9 +13,13 @@ import java.util.*;
 public class KafkaDataThread extends Thread {
 
     private String database;
+    private int batchSize;
+    private int batch;
 
-    KafkaDataThread(String database){
+    KafkaDataThread(String database, int batch, int batchSize){
+        this.batch = batch;
         this.database = database;
+        this.batchSize = batchSize;
     }
 
     @Override
@@ -32,12 +39,10 @@ public class KafkaDataThread extends Thread {
         String port = null;
         String dbtype = "iotdb";
 
-        int batchSize = 100;
-
         List<Map<String, Object>> datapoints = new ArrayList<>();
         try {
             datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, conditions, query, format, ip, port, dbtype);
-        } catch (SQLException e) {
+        } catch (SQLException | IoTDBSessionException | TException | IoTDBRPCException e) {
             e.printStackTrace();
         }
 
@@ -65,20 +70,21 @@ public class KafkaDataThread extends Thread {
         KafkaProducer<Long, Double> kafkaProducer = new KafkaProducer<>(properties);
 
         System.out.println("topic: " + this.database);
+        long timeInterval = 1000000000L / batch / batchSize; // 1s 分配给 batch 中各个数据
+        System.out.println("timeInterval:" + timeInterval);
 
         while (round < 1000){
 
             long loopStartTime = System.currentTimeMillis();
 
-            for(int i = 0; i < 10; i++){
+            for(int i = 0; i < batch; i++){
                 long batchStartTime = System.currentTimeMillis();
-                time = batchStartTime;
+                time = batchStartTime * 1000000L;
                 for(int j = 0; j < batchSize; j++){
                     Map<String, Object> p = datapoints.get(index);
-                    time += 1L;
+                    time += timeInterval;
                     value = Double.valueOf(p.get(label).toString());
                     kafkaProducer.send(new ProducerRecord<>(this.database, time, value));
-//                    System.out.println("datatime:"+time+" inserttime:"+System.currentTimeMillis());
                     index++;
                     throughput++;
                     if(index >= datapoints.size()){
@@ -88,7 +94,7 @@ public class KafkaDataThread extends Thread {
                 }
 
                 try {
-                    Thread.sleep(Math.max(0, batchStartTime + 100 - System.currentTimeMillis()));
+                    Thread.sleep(Math.max(0, batchStartTime + (1000 / batch) - System.currentTimeMillis()));
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }

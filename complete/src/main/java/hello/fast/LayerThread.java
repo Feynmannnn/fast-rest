@@ -172,7 +172,7 @@ public class LayerThread extends Thread{
         String iotdbLabel = database + "." + timeseries + "." +columns;
         String weightLabel = dbtype.equals("iotdb") ? database + "." + timeseries + ".weight" : "weight";
         System.out.println(weightLabel);
-        String label = dbtype.equals("iotdb") ? iotdbLabel : columns.toLowerCase();
+        String label = dbtype.equals("iotdb") ? iotdbLabel : (dbtype.equals("influxdb")? columns : columns.toLowerCase());
         String timelabel = "time";
 
         // 获取第一批数据，目标为计算BucketSum与时间数值的离群值阈值

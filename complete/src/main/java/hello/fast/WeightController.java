@@ -1,6 +1,9 @@
 package hello.fast;
 
 import hello.fast.util.OutlierDetection;
+import org.apache.iotdb.rpc.IoTDBRPCException;
+import org.apache.iotdb.session.IoTDBSessionException;
+import org.apache.thrift.TException;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,7 +37,7 @@ public class WeightController {
             @RequestParam(value="dbtype", defaultValue = "iotdb") String dbtype,
             @RequestParam(value="timeLimit", required = false) Double timeLimit,
             @RequestParam(value="valueLimit", required = false) Double valueLimit
-    ) throws SQLException {
+    ) throws SQLException, TException, IoTDBRPCException, IoTDBSessionException {
         url = url.replace("\"", "");
         username = username.replace("\"", "");
         password = password.replace("\"", "");
@@ -73,7 +76,7 @@ public class WeightController {
             String dbtype,
             Double timeLimit,
             Double valueLimit
-    ) throws SQLException {
+    ) throws SQLException, TException, IoTDBRPCException, IoTDBSessionException {
         List<Map<String, Object>> dataPoints = DataController._dataPoints(
                 url, username, password, database, timeseries, columns, timecolumn, starttime, endtime, conditions, query, "map", ip, port, dbtype);
 
@@ -100,7 +103,7 @@ public class WeightController {
         boolean timeLimitIsNull = timeLimit == null;
         boolean valueLimitIsNull = valueLimit == null;
         
-        long lastTimestamp = (Timestamp.valueOf(dataPoints.get(0).get(timelabel).toString().replace("T", " ").replace("Z", ""))).getTime();
+        long lastTimestamp = (long)dataPoints.get(0).get("timestamp");
         for (Map<String, Object> point : dataPoints) {
             long ts = (long)point.get("timestamp");
             Double weight = (ts - lastTimestamp) + 0.0;

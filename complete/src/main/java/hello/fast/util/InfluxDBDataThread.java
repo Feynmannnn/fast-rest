@@ -1,22 +1,29 @@
 package hello.fast.util;
 
 import hello.fast.DataController;
-import hello.fast.source.IoTDBConnection;
+import hello.fast.source.InfluxDBConnection;
+import org.apache.iotdb.rpc.IoTDBRPCException;
+import org.apache.iotdb.session.IoTDBSessionException;
+import org.apache.thrift.TException;
+import org.influxdb.InfluxDB;
+import org.influxdb.dto.BatchPoints;
+import org.influxdb.dto.Point;
 
-import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.Time;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
-public class DemoDataThread extends Thread {
+public class InfluxDBDataThread extends Thread {
 
     private String database;
     private int batchSize;
     private int batch;
 
-    DemoDataThread(String database, Integer batch, Integer batchSize){
+    InfluxDBDataThread(String database, Integer batch, Integer batchSize){
         this.database = database;
         this.batchSize = batchSize;
         this.batch = batch;
@@ -42,52 +49,13 @@ public class DemoDataThread extends Thread {
         List<Map<String, Object>> datapoints = new ArrayList<>();
         try {
             datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, conditions, query, format, ip, port, dbtype);
-        } catch (SQLException e) {
+        } catch (SQLException | IoTDBSessionException | TException | IoTDBRPCException e) {
             e.printStackTrace();
         }
 
         System.out.println("datapoints.size():" + datapoints.size());
 
-        String dataUrl = "jdbc:iotdb://192.168.10.172:6667/";
-        String dataUsername = "root";
-        String dataPassword = "root";
-
-        Connection connection = IoTDBConnection.getConnection(dataUrl, dataUsername, dataPassword);
-        if (connection == null) {
-            System.out.println("get connection defeat");
-            return;
-        }
-
-        String storageGroup = this.database == null ? "root.fast" : this.database;
-        String datatype = "DOUBLE";
-        String encoding = "PLAIN";
-
-        // create database if not exist
-        Statement statement = null;
-        try {
-            statement = connection.createStatement();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        try {
-            String createDatabaseSql = String.format("SET STORAGE GROUP TO %s", storageGroup);
-            System.out.println(createDatabaseSql);
-            statement.execute(createDatabaseSql);
-        }catch (SQLException e){
-            System.out.println(e.getMessage());
-        }
-
-        // create table if not exist
-        try {
-            String createTableSql = String.format("CREATE TIMESERIES %s.%s.%s WITH DATATYPE=%s, ENCODING=%s;", storageGroup, timeseries, columns, datatype, encoding);
-            System.out.println(createTableSql);
-            statement.execute(createTableSql);
-        }catch (SQLException e){
-            System.out.println(e.getMessage());
-        }
-
-        String label = database + "." + timeseries + "." + columns;
-        System.out.println(label);
+        InfluxDBConnection influxDBConnection = new InfluxDBConnection("http://192.168.10.172:8086", "root", "root", this.database, null);
 
         long throughput = 0L;
         int index = 0;
@@ -95,6 +63,9 @@ public class DemoDataThread extends Thread {
         String insertSql = "insert into %s.%s(timestamp, %s) values(%s, %s);";
         long time;
         String value;
+        String label = database + "." + timeseries + "." + columns;
+        System.out.println(label);
+        timeseries = "m1701";
 
         long timeInterval = 1000000000L / batch / batchSize; // 1s 分配给 batch 中各个数据
         System.out.println("timeInterval:" + timeInterval);
@@ -105,16 +76,14 @@ public class DemoDataThread extends Thread {
 
             for(int i = 0; i < batch; i++){
                 long batchStartTime = System.currentTimeMillis();
-                time = batchStartTime * 1000000L;
+                time = batchStartTime * 1000000L + (8 * 60 * 60 * 1000000000L);
+                BatchPoints batchPoints = BatchPoints.database(this.database).build();
                 for(int j = 0; j < batchSize; j++){
                     Map<String, Object> p = datapoints.get(index);
                     time += timeInterval;
                     value = p.get(label).toString();
-                    try {
-                        statement.addBatch(String.format(insertSql, storageGroup, timeseries, columns, time, value));
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
+                    // add one sql
+                    batchPoints.point(Point.measurement(timeseries).time(time, TimeUnit.NANOSECONDS).addField(columns, Double.valueOf(value)).build());
                     index++;
                     throughput++;
                     if(index >= datapoints.size()){
@@ -123,12 +92,7 @@ public class DemoDataThread extends Thread {
                     }
                 }
                 // send batch insert sql
-                try {
-                    statement.executeBatch();
-                    statement.clearBatch();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
+                influxDBConnection.batchInsert(batchPoints);
 
                 try {
                     Thread.sleep(Math.max(0, batchStartTime + (1000 / batch) - System.currentTimeMillis()));

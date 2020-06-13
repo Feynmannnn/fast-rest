@@ -38,6 +38,11 @@
             <version>0.9.3</version>
         </dependency>
         <dependency>
+          <groupId>org.apache.iotdb</groupId>
+          <artifactId>iotdb-session</artifactId>
+          <version>0.9.3</version>
+        </dependency>
+        <dependency>
             <groupId>org.influxdb</groupId>
             <artifactId>influxdb-java</artifactId>
             <version>2.15</version>
