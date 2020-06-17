@@ -337,7 +337,7 @@ java -jar gs-rest-service-0.1.0.jar
 
 项目内实现采样延迟的自动测试接口*/latencytest*，具体测试方法为
 
-0. 准备好实验测试环境，安装并启动数据源如IoTDB（https://iotdb.apache.org），Influxdb（www.influxdata.com），TimescaleDB（https://www.timescale.com）及Kafka（http://kafka.apache.org），并将数据源信息以JSON格式保存于jar包同级目录中的test.config文件中
+0. 准备好实验测试环境，安装并启动数据源如IoTDB（[https://iotdb.apache.org](https://iotdb.apache.org)），Influxdb（[www.influxdata.com](www.influxdata.com)），TimescaleDB（[https://www.timescale.com](https://www.timescale.com)）及Kafka（[http://kafka.apache.org](http://kafka.apache.org)），并将数据源信息以JSON格式保存于jar包同级目录中的test.config文件中
 1. 发送测试请求，如
 http://192.168.10.172:9090/latencytest?database="root.abc"&batch=1000&batchSize=10&dbtype=iotdb
 启动写入iotdb数据库root.abc，batch为每秒写入1000次，batchSize为每次写入十条数据，
