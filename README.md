@@ -351,6 +351,7 @@ http://192.168.10.172:9090/latencytest?database="root.abc"&batch=1000&batchSize=
 示例test.json:
 ```json
 {
+    // 用于模拟实时写入的原始数据
     "dataURL":"jdbc:iotdb://192.168.10.172:6667/",
     "dataUsername":"root",
     "dataPassword":"root",
@@ -362,18 +363,22 @@ http://192.168.10.172:9090/latencytest?database="root.abc"&batch=1000&batchSize=
     "dataConditions":" and ZT31 > 0 ",
     "dataDbtype":"iotdb",
 
+    // IoTDB数据源
     "IoTDBURL":"jdbc:iotdb://192.168.10.172:6667/",
     "IoTDBUsername":"root",
     "IoTDBPassword":"root",
 
+    // Influxdb数据源
     "InfluxDBURL":"http://192.168.10.172:8086",
     "InfluxDBUsername":"root",
     "InfluxDBPassword":"root",
 
+    // TimescaleDB数据源
     "TimescaleDBURL":"jdbc:postgresql://192.168.10.172:5432/",
     "TimescaleDBUsername":"postgres",
     "TimescaleDBPassword":"1111aaaa",
 
+    // Kafka数据源
     "KafkaURL":"192.168.10.172:9092",
 }
 ```

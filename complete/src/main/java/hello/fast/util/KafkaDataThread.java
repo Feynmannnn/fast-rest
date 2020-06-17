@@ -46,36 +46,7 @@ public class KafkaDataThread extends Thread {
 
         JSONObject jsonObject = JSONObject.parseObject(config);
 
-        String url = jsonObject.getString("dataURL");
-        String username = jsonObject.getString("dataUsername");
-        String password = jsonObject.getString("dataPassword");
-        String database = jsonObject.getString("dataDatabase");
-        String timeseries = jsonObject.getString("dataTimeseries");
-        String columns = jsonObject.getString("dataColumns");
-        String starttime = jsonObject.getString("dataStartTime");
-        String endtime = jsonObject.getString("dataEndTime");
-        String conditions = jsonObject.getString("dataConditions");
-        String query = null;
-        String format = "map";
-        String ip = null;
-        String port = null;
-        String dbtype = jsonObject.getString("dataDbtype");
-
-        List<Map<String, Object>> datapoints = new ArrayList<>();
-        try {
-            datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, conditions, query, format, ip, port, dbtype);
-        } catch (SQLException | IoTDBSessionException | TException | IoTDBRPCException e) {
-            e.printStackTrace();
-        }
-
-        System.out.println("datapoints.size():" + datapoints.size());
-
-        String label = database + "." + timeseries + "." + columns;
-        System.out.println(label);
-
         long throughput = 0L;
-        int index = 0;
-        long round = 0;
         long time;
         Double value;
 
@@ -95,7 +66,7 @@ public class KafkaDataThread extends Thread {
         long timeInterval = 1000000000L / batch / batchSize; // 1s 分配给 batch 中各个数据
         System.out.println("timeInterval:" + timeInterval);
 
-        while (round < 1000){
+        while (true){
 
             long loopStartTime = System.currentTimeMillis();
 
@@ -103,16 +74,10 @@ public class KafkaDataThread extends Thread {
                 long batchStartTime = System.currentTimeMillis();
                 time = batchStartTime * 1000000L;
                 for(int j = 0; j < batchSize; j++){
-                    Map<String, Object> p = datapoints.get(index);
                     time += timeInterval;
-                    value = Double.valueOf(p.get(label).toString());
+                    value = Math.random();
                     kafkaProducer.send(new ProducerRecord<>(this.database, time, value));
-                    index++;
                     throughput++;
-                    if(index >= datapoints.size()){
-                        index = 0;
-                        round++;
-                    }
                 }
 
                 try {

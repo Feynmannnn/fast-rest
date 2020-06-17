@@ -53,46 +53,20 @@ public class InfluxDBDataThread extends Thread {
 
         JSONObject jsonObject = JSONObject.parseObject(config);
 
-        String url = jsonObject.getString("dataURL");
-        String username = jsonObject.getString("dataUsername");
-        String password = jsonObject.getString("dataPassword");
-        String database = jsonObject.getString("dataDatabase");
-        String timeseries = jsonObject.getString("dataTimeseries");
-        String columns = jsonObject.getString("dataColumns");
-        String starttime = jsonObject.getString("dataStartTime");
-        String endtime = jsonObject.getString("dataEndTime");
-        String conditions = jsonObject.getString("dataConditions");
-        String query = null;
-        String format = "map";
-        String ip = null;
-        String port = null;
-        String dbtype = jsonObject.getString("dataDbtype");
-
-        List<Map<String, Object>> datapoints = new ArrayList<>();
-        try {
-            datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, conditions, query, format, ip, port, dbtype);
-        } catch (SQLException | IoTDBSessionException | TException | IoTDBRPCException e) {
-            e.printStackTrace();
-        }
-
-        System.out.println("datapoints.size():" + datapoints.size());
+        String timeseries = "d1";
+        String columns = "s1";
 
         InfluxDBConnection influxDBConnection = new InfluxDBConnection(jsonObject.getString("InfluxDBURL"), jsonObject.getString("InfluxDBUsername"), jsonObject.getString("InfluxDBPassword"), this.database, null);
 
         long throughput = 0L;
-        int index = 0;
-        long round = 0;
-        String insertSql = "insert into %s.%s(timestamp, %s) values(%s, %s);";
         long time;
-        String value;
-        String label = database + "." + timeseries + "." + columns;
-        System.out.println(label);
+        double value;
         timeseries = "m1701";
 
         long timeInterval = 1000000000L / batch / batchSize; // 1s 分配给 batch 中各个数据
         System.out.println("timeInterval:" + timeInterval);
 
-        while (round < 10){
+        while (true){
 
             long loopStartTime = System.currentTimeMillis();
 
@@ -101,17 +75,11 @@ public class InfluxDBDataThread extends Thread {
                 time = batchStartTime * 1000000L + (8 * 60 * 60 * 1000000000L);
                 BatchPoints batchPoints = BatchPoints.database(this.database).build();
                 for(int j = 0; j < batchSize; j++){
-                    Map<String, Object> p = datapoints.get(index);
                     time += timeInterval;
-                    value = p.get(label).toString();
+                    value = Math.random();
                     // add one sql
                     batchPoints.point(Point.measurement(timeseries).time(time, TimeUnit.NANOSECONDS).addField(columns, Double.valueOf(value)).build());
-                    index++;
                     throughput++;
-                    if(index >= datapoints.size()){
-                        index = 0;
-                        round++;
-                    }
                 }
                 // send batch insert sql
                 influxDBConnection.batchInsert(batchPoints);

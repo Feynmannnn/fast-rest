@@ -52,29 +52,8 @@ public class PGDataThread extends Thread {
 
         JSONObject jsonObject = JSONObject.parseObject(config);
 
-        String url = jsonObject.getString("dataURL");
-        String username = jsonObject.getString("dataUsername");
-        String password = jsonObject.getString("dataPassword");
-        String database = jsonObject.getString("dataDatabase");
-        String timeseries = jsonObject.getString("dataTimeseries");
-        String columns = jsonObject.getString("dataColumns");
-        String starttime = jsonObject.getString("dataStartTime");
-        String endtime = jsonObject.getString("dataEndTime");
-        String conditions = jsonObject.getString("dataConditions");
-        String query = null;
-        String format = "map";
-        String ip = null;
-        String port = null;
-        String dbtype = jsonObject.getString("dataDbtype");
-
-        List<Map<String, Object>> datapoints = new ArrayList<>();
-        try {
-            datapoints = DataController._dataPoints(url, username, password, database, timeseries, columns, "time", starttime, endtime, conditions, query, format, ip, port, dbtype);
-        } catch (SQLException | IoTDBSessionException | IoTDBRPCException | TException e) {
-            e.printStackTrace();
-        }
-
-        System.out.println("datapoints.size():" + datapoints.size());
+        String timeseries = "d1";
+        String columns = "s1";
 
         String dataUrl = jsonObject.getString("TimescaleDBURL");
         String dataUsername = jsonObject.getString("TimescaleDBUsername");
@@ -108,8 +87,6 @@ public class PGDataThread extends Thread {
         String extentionsql = "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;";
         pgtool.queryUpdate(connection, extentionsql);
 
-        String label = database + "." + timeseries + "." + columns;
-        System.out.println(label);
         timeseries = "m1701";
 
         // create table
@@ -126,10 +103,8 @@ public class PGDataThread extends Thread {
 
 
         long throughput = 0L;
-        int index = 0;
-        long round = 0;
         long time;
-        String value;
+        double value;
         String batchInsertFormat = "insert into %s (time, %s) values ('%s', %s);";
 
         long timeInterval = 1000000000L / batch / batchSize; // 1s 分配给 batch 中各个数据
@@ -138,7 +113,7 @@ public class PGDataThread extends Thread {
         String fmt = "yyyy-MM-dd HH:mm:ss.SSS";
         SimpleDateFormat sdf = new SimpleDateFormat(fmt);
 
-        while (round < 10){
+        while (true) {
 
             long loopStartTime = System.currentTimeMillis();
 
@@ -153,18 +128,12 @@ public class PGDataThread extends Thread {
                 sqls = new ArrayList<>();
                 for(int j = 0; j < batchSize; j++){
                     // add one sql
-                    Map<String, Object> p = datapoints.get(index);
                     time += timeInterval;
                     timestr = (sdf.format(new Date(time/1000000L)) + "000").substring(0, 23) + (time%1000000L);
-                    value = p.get(label).toString();
+                    value = Math.random();
                     sqls.add(String.format(batchInsertFormat, timeseries, columns, timestr, value));
-
-                    index++;
                     throughput++;
-                    if(index >= datapoints.size()){
-                        index = 0;
-                        round++;
-                    }
+
                 }
                 // send batch insert sql
                 sb = new StringBuilder();
