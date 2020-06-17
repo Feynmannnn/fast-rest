@@ -1,11 +1,15 @@
 package hello.fast.util;
 
+import com.alibaba.fastjson.JSONObject;
 import hello.fast.DataController;
 import hello.fast.source.PGConnection;
 import org.apache.iotdb.rpc.IoTDBRPCException;
 import org.apache.iotdb.session.IoTDBSessionException;
 import org.apache.thrift.TException;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -29,20 +33,39 @@ public class PGDataThread extends Thread {
 
     @Override
     public void run() {
-        String url = "jdbc:iotdb://101.6.15.201:6667/";
-        String username = "root";
-        String password = "root";
-        String database = "root.group_9";
-        String timeseries = "1701";
-        String columns = "ZT31";
-        String starttime = "2019-08-15 00:00:00";
-        String endtime = "2019-08-20 00:00:00";
-        String conditions = " and ZT31 > 0 ";
+
+        // 读取test.config文件获取数据库信息
+        String config = "";
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("test.config"));
+            String str = "";
+            StringBuilder sb = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                str=new String(str.getBytes(),"UTF-8");//解决中文乱码问题
+                sb.append(str);
+            }
+            config = sb.toString();
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        JSONObject jsonObject = JSONObject.parseObject(config);
+
+        String url = jsonObject.getString("dataURL");
+        String username = jsonObject.getString("dataUsername");
+        String password = jsonObject.getString("dataPassword");
+        String database = jsonObject.getString("dataDatabase");
+        String timeseries = jsonObject.getString("dataTimeseries");
+        String columns = jsonObject.getString("dataColumns");
+        String starttime = jsonObject.getString("dataStartTime");
+        String endtime = jsonObject.getString("dataEndTime");
+        String conditions = jsonObject.getString("dataConditions");
         String query = null;
         String format = "map";
         String ip = null;
         String port = null;
-        String dbtype = "iotdb";
+        String dbtype = jsonObject.getString("dataDbtype");
 
         List<Map<String, Object>> datapoints = new ArrayList<>();
         try {
@@ -53,9 +76,9 @@ public class PGDataThread extends Thread {
 
         System.out.println("datapoints.size():" + datapoints.size());
 
-        String dataUrl = "jdbc:postgresql://192.168.10.172:5432/";
-        String dataUsername = "postgres";
-        String dataPassword = "1111aaaa";
+        String dataUrl = jsonObject.getString("TimescaleDBURL");
+        String dataUsername = jsonObject.getString("TimescaleDBUsername");
+        String dataPassword = jsonObject.getString("TimescaleDBPassword");
         String TYPE = "DOUBLE PRECISION";
 
         PGConnection pgtool = new PGConnection(

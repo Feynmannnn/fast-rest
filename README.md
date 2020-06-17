@@ -269,11 +269,11 @@
 
 InfluxDB
 
- |目标数据写入速率（点每秒） | 10000 | 20000 | 30000 |
-| ------------ | ------------ | ------------ | ------------ | ------------ |
- |吞吐量（点每秒） | 10000 | 20000 | ~25000 |
- |分批采样延迟t-t1（毫秒） | 248 | 435 |  |
- |订阅采样延迟t-t2（毫秒） | 446 | 876 |  | |
+| 目标数据写入速率（点每秒） | 10000 | 20000 | 30000 |
+| ------------ | ------------ | ------------ | ------------ |
+| 吞吐量（点每秒） | 10000 | 20000 | ~25000 |
+| 分批采样延迟t-t1（毫秒） | 248 | 435 |  |
+| 订阅采样延迟t-t2（毫秒） | 446 | 876 |  |
 
  |数据规模 | 数据控制器 | 权重控制器 | 分桶控制器 | 采样控制器 |
 | ------------ | ------------ | ------------ | ------------ | ------------ |
@@ -335,15 +335,43 @@ java -jar gs-rest-service-0.1.0.jar
 
 项目内实现采样延迟的自动测试接口*/latencytest*，具体测试方法为
 
-1.  发送测试请求，如
+0. 准备完成数据源（例如IoTDB，Influxdb，TimescaleDB及Kafka），并将数据源信息以JSON格式保存于jar包同级目录中的test.config文件中
+1. 发送测试请求，如
 http://192.168.10.172:9090/latencytest?database="root.abc"&batch=1000&batchSize=10&dbtype=iotdb
 启动写入iotdb数据库root.abc，batch为每秒写入1000次，batchSize为每次写入十条数据，
-2.  等待网页返回测试结果。sublantency为订阅采样延迟，samplelatency为分批采样延迟
-3.  在日志中分析对应吞吐量，如 cat result.txt | grep throughput
+2. 等待网页返回测试结果。sublantency为订阅采样延迟，samplelatency为分批采样延迟
+3. 在日志中分析对应吞吐量，如 cat result.txt | grep throughput
 4. 重启服务 ./restart.sh，中止订阅相关线程，释放数据库链接。
 5. 删除测试数据，如IoTDB为：delete from root.abc.1701.ZT31 where time <= 2030-01-01 00:00:00;
 6. 删除TimescaleDB的中间层数据库，如drop database root_abc;
 7. 进行下轮测试
 
+示例test.json:
+```json
+{
+    "dataURL":"jdbc:iotdb://192.168.10.172:6667/",
+    "dataUsername":"root",
+    "dataPassword":"root",
+    "dataDatabase":"root.group_9",
+    "dataTimeseries":"1701",
+    "dataColumns":"ZT31",
+    "dataStartTime":"2019-08-15 00:00:00",
+    "dataEndTime":"2019-08-20 00:00:00",
+    "dataConditions":" and ZT31 > 0 ",
+    "dataDbtype":"iotdb",
 
+    "IoTDBURL":"jdbc:iotdb://192.168.10.172:6667/",
+    "IoTDBUsername":"root",
+    "IoTDBPassword":"root",
 
+    "InfluxDBURL":"http://192.168.10.172:8086",
+    "InfluxDBUsername":"root",
+    "InfluxDBPassword":"root",
+
+    "TimescaleDBURL":"jdbc:postgresql://192.168.10.172:5432/",
+    "TimescaleDBUsername":"postgres",
+    "TimescaleDBPassword":"1111aaaa",
+
+    "KafkaURL":"192.168.10.172:9092",
+}
+```

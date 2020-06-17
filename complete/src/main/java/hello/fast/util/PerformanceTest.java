@@ -1,5 +1,6 @@
 package hello.fast.util;
 
+import com.alibaba.fastjson.JSONObject;
 import hello.fast.LayerThread;
 import hello.fast.QueryController;
 import hello.fast.SampleController;
@@ -8,6 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Map;
@@ -28,11 +32,29 @@ public class PerformanceTest {
             @RequestParam(value="dbtype") String dbtype
     ) throws Exception {
 
-        String url = "jdbc:iotdb://192.168.10.172:6667/";
-        String username = "root";
-        String password = "root";
-        String timeseries = "1701";
-        String columns = "ZT31";
+        // 读取test.config文件获取数据库信息
+        String config = "";
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("test.config"));
+            String str = "";
+            StringBuilder sb = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                str=new String(str.getBytes(),"UTF-8");//解决中文乱码问题
+                sb.append(str);
+            }
+            config = sb.toString();
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        JSONObject jsonObject = JSONObject.parseObject(config);
+
+        String url = jsonObject.getString("innerURL");;
+        String username = jsonObject.getString("innerURL");;
+        String password = jsonObject.getString("innerURL");;
+        String timeseries = jsonObject.getString("innerURL");;
+        String columns = jsonObject.getString("innerURL");;
         String starttime = "1971-01-01 00:00:00";
 
         // 启动数据写入
